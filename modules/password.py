@@ -9,7 +9,6 @@ class DialogPassword(QWidget):
         self.dialog = QDialog(parent)
         self.dialog.ui = Ui_DialogPassword()
         self.dialog.ui.setupUi(self.dialog)
-
         self.dialog.ui.buttonBox.button(QDialogButtonBox.Ok).clicked.connect(self.clicked_ok)
         self.dialog.ui.buttonBox.button(QDialogButtonBox.Cancel).clicked.connect(self.clicked_cancel)
 

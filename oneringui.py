@@ -50,6 +50,9 @@ class Ui_MainWindow(object):
         self.verticalLayout.addWidget(self.pushButton_Netstat)
         spacerItem = QtGui.QSpacerItem(20, 40, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
         self.verticalLayout.addItem(spacerItem)
+        self.pushButton_sudo = QtGui.QPushButton(self.centralwidget)
+        self.pushButton_sudo.setObjectName(_fromUtf8("pushButton_sudo"))
+        self.verticalLayout.addWidget(self.pushButton_sudo)
         self.verticalLayout_2.addLayout(self.verticalLayout)
         MainWindow.setCentralWidget(self.centralwidget)
         self.statusBar = QtGui.QStatusBar(MainWindow)
@@ -63,4 +66,5 @@ class Ui_MainWindow(object):
         MainWindow.setWindowTitle(_translate("MainWindow", "One Ring", None))
         self.pushButton_Firewall.setText(_translate("MainWindow", "Firewall (UFW)", None))
         self.pushButton_Netstat.setText(_translate("MainWindow", "Network", None))
+        self.pushButton_sudo.setText(_translate("MainWindow", "Setup sudo And connection", None))
 

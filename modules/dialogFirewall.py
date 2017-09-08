@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'dialogFirewall.ui'
+# Form implementation generated from reading ui file 'modules/dialogFirewall.ui'
 #
 # Created by: PyQt4 UI code generator 4.11.4
 #
@@ -25,7 +25,10 @@ except AttributeError:
 class Ui_DialogFirewall(object):
     def setupUi(self, DialogFirewall):
         DialogFirewall.setObjectName(_fromUtf8("DialogFirewall"))
-        DialogFirewall.resize(665, 485)
+        DialogFirewall.resize(795, 485)
+        font = QtGui.QFont()
+        font.setFamily(_fromUtf8("Ubuntu Mono"))
+        DialogFirewall.setFont(font)
         self.verticalLayout_2 = QtGui.QVBoxLayout(DialogFirewall)
         self.verticalLayout_2.setObjectName(_fromUtf8("verticalLayout_2"))
         self.horizontalLayout = QtGui.QHBoxLayout()
@@ -41,11 +44,16 @@ class Ui_DialogFirewall(object):
         self.verticalLayout = QtGui.QVBoxLayout(self.groupBox_2)
         self.verticalLayout.setObjectName(_fromUtf8("verticalLayout"))
         self.tableWidget = QtGui.QTableWidget(self.groupBox_2)
-        self.tableWidget.setEnabled(False)
+        self.tableWidget.setEnabled(True)
+        font = QtGui.QFont()
+        font.setFamily(_fromUtf8("Ubuntu Mono"))
+        self.tableWidget.setFont(font)
+        self.tableWidget.setEditTriggers(QtGui.QAbstractItemView.NoEditTriggers)
         self.tableWidget.setProperty("showDropIndicator", False)
         self.tableWidget.setDragDropOverwriteMode(False)
         self.tableWidget.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
         self.tableWidget.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
+        self.tableWidget.setShowGrid(True)
         self.tableWidget.setObjectName(_fromUtf8("tableWidget"))
         self.tableWidget.setColumnCount(4)
         self.tableWidget.setRowCount(0)
@@ -74,9 +82,14 @@ class Ui_DialogFirewall(object):
         self.verticalLayout_3 = QtGui.QVBoxLayout()
         self.verticalLayout_3.setObjectName(_fromUtf8("verticalLayout_3"))
         self.pushButton_refresh = QtGui.QPushButton(self.groupBox)
+        self.pushButton_refresh.setDefault(True)
         self.pushButton_refresh.setObjectName(_fromUtf8("pushButton_refresh"))
         self.verticalLayout_3.addWidget(self.pushButton_refresh)
         self.pushButton_removeRule = QtGui.QPushButton(self.groupBox)
+        self.pushButton_removeRule.setEnabled(False)
+        self.pushButton_removeRule.setCheckable(False)
+        self.pushButton_removeRule.setChecked(False)
+        self.pushButton_removeRule.setAutoDefault(False)
         self.pushButton_removeRule.setObjectName(_fromUtf8("pushButton_removeRule"))
         self.verticalLayout_3.addWidget(self.pushButton_removeRule)
         spacerItem = QtGui.QSpacerItem(20, 40, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)

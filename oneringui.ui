@@ -25,6 +25,11 @@
     <height>0</height>
    </size>
   </property>
+  <property name="font">
+   <font>
+    <family>Ubuntu Mono</family>
+   </font>
+  </property>
   <property name="windowTitle">
    <string>One Ring</string>
   </property>
@@ -45,6 +50,9 @@
       </item>
       <item>
        <widget class="QPushButton" name="pushButton_Netstat">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
         <property name="text">
          <string>Network</string>
         </property>
@@ -62,6 +70,13 @@
          </size>
         </property>
        </spacer>
+      </item>
+      <item>
+       <widget class="QPushButton" name="pushButton_sudo">
+        <property name="text">
+         <string>sudo / connection settings</string>
+        </property>
+       </widget>
       </item>
      </layout>
     </item>
