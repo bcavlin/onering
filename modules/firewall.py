@@ -1,4 +1,5 @@
 import re
+import sip
 import subprocess
 
 from PyQt4 import QtGui, QtCore
@@ -6,7 +7,7 @@ from PyQt4.QtCore import QThread
 from PyQt4.QtGui import QDialog, QWidget
 
 from modules.abstr import Abstr
-from modules.dialogFirewall import Ui_DialogFirewall
+from modules.dialogFirewall_ui import Ui_DialogFirewall
 
 
 class DialogFirewall(QWidget, Abstr):
@@ -63,6 +64,7 @@ class DialogFirewall(QWidget, Abstr):
 
     def __init__(self, parent):
         super().__init__(parent)
+        sip.setapi('QString', 2)
         self.dialog = QDialog(parent)
         self.dialog.ui = Ui_DialogFirewall()
         self.dialog.ui.setupUi(self.dialog)
@@ -80,10 +82,23 @@ class DialogFirewall(QWidget, Abstr):
 
 class DialogFirewallThread(QThread, Abstr):
     def execute_command(self):
-        self.result = subprocess.Popen("echo %s | sudo -S ufw status numbered" % self.parent.decode(),
-                                       shell=True,
-                                       stdout=subprocess.PIPE,
-                                       stderr=subprocess.DEVNULL).stdout.read().decode('utf-8')
+        if self.parent().selected_connection.ip == '127.0.0.1':
+            command = ["echo {0} | sudo -S ufw status numbered".format(self.parent().selected_connection.sudo_password)]
+        else:
+            command = ["sshpass", "-p", "{0}".format(self.parent().selected_connection.password), "ssh",
+                       "{0}@{1}".format(self.parent().selected_connection.username,
+                                        self.parent().selected_connection.ip),
+                       "echo {0} | sudo -S ufw status numbered".format(self.parent().selected_connection.sudo_password)]
+
+        self.result = subprocess.Popen(
+            command,
+            shell=False if len(command) > 1 else True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE).stdout.read().decode('utf-8')
+
+        print(command)
+        print(self.result)
+
         if self.result:
             lines = self.result.splitlines()
             to_start = 0
@@ -107,14 +122,14 @@ class DialogFirewallThread(QThread, Abstr):
                                        stderr=subprocess.DEVNULL).stdout.read().decode('utf-8')
 
     def __init__(self, parent, command='validate'):
-        QThread.__init__(self)
+        # QThread.__init__(self, parent)
+        # self.parent = parent  # needed for decode function
+        super().__init__(parent)
         self.command = command
-        self.parent = parent  # needed for decode function
-        self.result = ''  # this holds string result
-        self.data = []  # this holds parsed data ready for processing into GUI
-
-    def __del__(self):
-        self.wait()
+        # this holds string result
+        self.result = ''
+        # this holds parsed data ready for processing into GUI
+        self.data = []
 
     def run(self):
         if self.command == 'validate':

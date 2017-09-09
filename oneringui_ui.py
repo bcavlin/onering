@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'oneringui.ui'
+# Form implementation generated from reading ui file './oneringui.ui'
 #
 # Created by: PyQt4 UI code generator 4.11.4
 #
@@ -33,6 +33,9 @@ class Ui_MainWindow(object):
         sizePolicy.setHeightForWidth(MainWindow.sizePolicy().hasHeightForWidth())
         MainWindow.setSizePolicy(sizePolicy)
         MainWindow.setMinimumSize(QtCore.QSize(240, 0))
+        font = QtGui.QFont()
+        font.setFamily(_fromUtf8("Ubuntu Mono"))
+        MainWindow.setFont(font)
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(_fromUtf8("images/icon-hat-white.png")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         MainWindow.setWindowIcon(icon)
@@ -46,6 +49,7 @@ class Ui_MainWindow(object):
         self.pushButton_Firewall.setObjectName(_fromUtf8("pushButton_Firewall"))
         self.verticalLayout.addWidget(self.pushButton_Firewall)
         self.pushButton_Netstat = QtGui.QPushButton(self.centralwidget)
+        self.pushButton_Netstat.setEnabled(False)
         self.pushButton_Netstat.setObjectName(_fromUtf8("pushButton_Netstat"))
         self.verticalLayout.addWidget(self.pushButton_Netstat)
         spacerItem = QtGui.QSpacerItem(20, 40, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
@@ -66,5 +70,5 @@ class Ui_MainWindow(object):
         MainWindow.setWindowTitle(_translate("MainWindow", "One Ring", None))
         self.pushButton_Firewall.setText(_translate("MainWindow", "Firewall (UFW)", None))
         self.pushButton_Netstat.setText(_translate("MainWindow", "Network", None))
-        self.pushButton_sudo.setText(_translate("MainWindow", "Setup sudo And connection", None))
+        self.pushButton_sudo.setText(_translate("MainWindow", "sudo / connection settings", None))
 
