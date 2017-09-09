@@ -1,9 +1,10 @@
 import base64
+import sqlite3
 import sys
 import uuid
-from PyQt4 import QtGui
 
 from Crypto.Cipher import AES
+from PyQt4 import QtGui
 from PyQt4.QtGui import QMainWindow, QSystemTrayIcon, QIcon, QMenu, QApplication
 from screeninfo import get_monitors
 
@@ -30,7 +31,18 @@ class OneRingApp(QMainWindow, oneringui.Ui_MainWindow):
         self.setup_icon()
         self.setup_menu()
 
-        self.connections = []  # list of connections
+        # database connection
+        self.conn = sqlite3.connect('onering.sqlite')
+        c = self.conn.cursor()
+        try:
+            r = c.execute("SELECT * FROM CONNECTIONS")
+        except sqlite3.Error:
+            c.execute("CREATE TABLE CONNECTIONS(NAME TEXT, IP TEXT, USERNAME TEXT)")
+            c.execute("INSERT INTO CONNECTIONS(NAME,IP) VALUES('localhost','127.0.0.1')")
+            self.conn.commit()
+
+        # list of connections
+        self.connections = []
 
         self.dialog_password = DialogPassword(self)
         self.dialog_firewall = DialogFirewall(self)
@@ -40,6 +52,10 @@ class OneRingApp(QMainWindow, oneringui.Ui_MainWindow):
 
         self.cipher = AES.new(uuid.uuid4().hex, AES.MODE_ECB)
         self.secret = ''
+
+    def close(self):
+        self.conn.close()
+        return super().close()
 
     def encode(self, msg_text):
         return base64.b64encode(self.cipher.encrypt(msg_text))

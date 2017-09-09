@@ -1,7 +1,7 @@
 import re
 import subprocess
 
-from PyQt4 import QtGui
+from PyQt4 import QtGui, QtCore
 from PyQt4.QtCore import QThread
 from PyQt4.QtGui import QDialog, QWidget
 
@@ -38,13 +38,26 @@ class DialogFirewall(QWidget, Abstr):
                 self.parent().app.processEvents()
 
             if thread_call.data:
+                # clear table data
+                self.dialog.ui.tableWidget.setRowCount(0)
+                self.selected_index = -1
+
+                # parse new data
                 for data in thread_call.data:
                     row_position = self.dialog.ui.tableWidget.rowCount()
                     self.dialog.ui.tableWidget.insertRow(row_position)
-                    self.dialog.ui.tableWidget.setItem(row_position, 0, QtGui.QTableWidgetItem(data[0]))
-                    self.dialog.ui.tableWidget.setItem(row_position, 1, QtGui.QTableWidgetItem(data[1]))
-                    self.dialog.ui.tableWidget.setItem(row_position, 2, QtGui.QTableWidgetItem(data[2]))
-                    self.dialog.ui.tableWidget.setItem(row_position, 3, QtGui.QTableWidgetItem(data[3]))
+                    item1 = QtGui.QTableWidgetItem(data[0])  # number
+                    item1.setTextAlignment(QtCore.Qt.AlignCenter)
+                    self.dialog.ui.tableWidget.setItem(row_position, 0, item1)
+                    item2 = QtGui.QTableWidgetItem(data[1])  # to
+                    item2.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+                    self.dialog.ui.tableWidget.setItem(row_position, 1, item2)
+                    item3 = QtGui.QTableWidgetItem(data[2])  # action
+                    item3.setTextAlignment(QtCore.Qt.AlignCenter)
+                    self.dialog.ui.tableWidget.setItem(row_position, 2, item3)
+                    item4 = QtGui.QTableWidgetItem(data[3])  # from
+                    item4.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+                    self.dialog.ui.tableWidget.setItem(row_position, 3, item4)
 
             print(thread_call.result)
 
@@ -54,6 +67,15 @@ class DialogFirewall(QWidget, Abstr):
         self.dialog.ui = Ui_DialogFirewall()
         self.dialog.ui.setupUi(self.dialog)
         self.dialog.ui.pushButton_refresh.clicked.connect(self.execute_command)
+        self.dialog.ui.tableWidget.setColumnWidth(0, 50)
+        self.dialog.ui.tableWidget.setColumnWidth(1, 200)
+        self.dialog.ui.tableWidget.setColumnWidth(2, 100)
+        self.dialog.ui.tableWidget.setColumnWidth(3, 200)
+        self.dialog.ui.tableWidget.clicked.connect(self.table_row_selected)
+        self.selected_index = -1
+
+    def table_row_selected(self):
+        self.selected_index = self.dialog.ui.tableWidget.selectedIndexes()[0].row()
 
 
 class DialogFirewallThread(QThread, Abstr):
