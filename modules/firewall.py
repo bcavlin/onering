@@ -21,7 +21,7 @@ class DialogFirewall(QWidget, Abstr):
 
             print(thread_call.result)
 
-            if thread_call.result.startswith('ufw'):
+            if thread_call.result:
                 self.enabled = True
             else:
                 QtGui.QMessageBox.warning(self.parent(), "UFW not enabled", "Check if the UFW is installed",
@@ -83,47 +83,57 @@ class DialogFirewall(QWidget, Abstr):
 class DialogFirewallThread(QThread, Abstr):
     def execute_command(self):
         if self.parent().selected_connection.ip == '127.0.0.1':
-            command = ["echo {0} | sudo -S ufw status numbered".format(self.parent().selected_connection.sudo_password)]
+            self.result = subprocess.Popen(
+                ["echo {0} | sudo -S ufw status numbered".format(self.parent().selected_connection.sudo_password)],
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL).stdout.read().decode('utf-8')
         else:
-            command = ["sshpass", "-p", "{0}".format(self.parent().selected_connection.password), "ssh",
-                       "{0}@{1}".format(self.parent().selected_connection.username,
-                                        self.parent().selected_connection.ip),
-                       "echo {0} | sudo -S ufw status numbered".format(self.parent().selected_connection.sudo_password)]
-
-        self.result = subprocess.Popen(
-            command,
-            shell=False if len(command) > 1 else True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE).stdout.read().decode('utf-8')
-
-        print(command)
-        print(self.result)
+            self.result = subprocess.Popen(
+                ["sshpass", "-p", "{0}".format(self.parent().selected_connection.password), "ssh",
+                 "{0}@{1}".format(self.parent().selected_connection.username,
+                                  self.parent().selected_connection.ip),
+                 "echo {0} | sudo -S ufw status numbered".format(self.parent().selected_connection.sudo_password)],
+                shell=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL).stdout.read().decode('utf-8')
 
         if self.result:
             lines = self.result.splitlines()
-            to_start = 0
-            action_start = 0
-            from_start = 0
             for line in lines:
                 parsed = []
-                if re.match(r'^\s*To\s*Action\s*From', line):
-                    to_start = line.find('To')
-                    action_start = line.find('Action')
-                    from_start = line.find('From')
-                elif re.match(r'^\s*\[', line) and to_start > 0:
-                    parsed.append(line[:to_start].strip())
-                    parsed.append(line[to_start:action_start].strip())
-                    parsed.append(line[action_start:from_start].strip())
-                    parsed.append(line[from_start:].strip())
+                match = re.match(r'^(\[.*\])\s*(.*)\s*(ALLOW|DENY|DROP|REJECT)\s(IN|OUT)?\s*(.*)', line)
+                if match:
+                    size = len(match.groups())
+                    parsed.append(match.group(1).strip())
+                    parsed.append(match.group(2).strip())
+                    if size == 4:
+                        parsed.append(match.group(3).strip())
+                        parsed.append(match.group(4).strip())
+                    else:
+                        parsed.append(match.group(3).strip() + ' ' + match.group(4).strip())
+                        parsed.append(match.group(5).strip())
                     self.data.append(parsed)
 
     def validate_command(self):
-        self.result = subprocess.Popen("ufw version", shell=True, stdout=subprocess.PIPE,
-                                       stderr=subprocess.DEVNULL).stdout.read().decode('utf-8')
+        if self.parent().selected_connection.ip == '127.0.0.1':
+            count = int(
+                subprocess.Popen("which ufw ssh sshpass | awk 'END{print NR}'", shell=True, stdout=subprocess.PIPE,
+                                 stderr=subprocess.DEVNULL).stdout.read().decode('utf-8').strip())
+        else:
+            count = int(
+                subprocess.Popen(["sshpass", "-p", "{0}".format(self.parent().selected_connection.password), "ssh",
+                                  "{0}@{1}".format(self.parent().selected_connection.username,
+                                                   self.parent().selected_connection.ip),
+                                  "which ufw ssh sshpass | awk 'END{print NR}'"], shell=False, stdout=subprocess.PIPE,
+                                 stderr=subprocess.DEVNULL).stdout.read().decode('utf-8').strip())
+
+        if count == 3:
+            self.result = True
+        else:
+            self.result = False
 
     def __init__(self, parent, command='validate'):
-        # QThread.__init__(self, parent)
-        # self.parent = parent  # needed for decode function
         super().__init__(parent)
         self.command = command
         # this holds string result

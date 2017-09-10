@@ -43,9 +43,9 @@ class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
         sys.exit(0)
 
     def close_data(self):
-        for connection in self.connections:
-            connection.password = ''
-            connection.sudo_password = ''
+        # for connection in self.connections:
+        #     connection.password = ''
+        #     connection.sudo_password = ''
 
         pickle.dump(self.connections, open('onering.p', 'wb'))
 
@@ -71,6 +71,7 @@ class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
     def show_firewall_dialog(self):
         if len(self.selected_connection.sudo_password) > 0 and self.dialog_firewall.validate_command():
             self.dialog_firewall.dialog.setWindowTitle('Firewall (UFW): [' + self.selected_connection.get_title() + ']')
+            self.dialog_firewall.dialog.ui.tableWidget.setRowCount(0)
             self.dialog_firewall.dialog.show()
         else:
             QtGui.QMessageBox.warning(self.parent(), "Password warning", "sudo password is required for this operation",

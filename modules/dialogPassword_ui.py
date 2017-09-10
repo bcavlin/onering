@@ -86,12 +86,12 @@ class Ui_DialogPassword(object):
 
         self.retranslateUi(DialogPassword)
         QtCore.QMetaObject.connectSlotsByName(DialogPassword)
+        DialogPassword.setTabOrder(self.passwordLineEdit, self.sudoPasswordLineEdit)
         DialogPassword.setTabOrder(self.sudoPasswordLineEdit, self.previousConnectionsComboBox)
         DialogPassword.setTabOrder(self.previousConnectionsComboBox, self.rememberPasswordsCheckBox)
         DialogPassword.setTabOrder(self.rememberPasswordsCheckBox, self.iPAddressLineEdit)
         DialogPassword.setTabOrder(self.iPAddressLineEdit, self.usernameLineEdit)
-        DialogPassword.setTabOrder(self.usernameLineEdit, self.passwordLineEdit)
-        DialogPassword.setTabOrder(self.passwordLineEdit, self.buttonBox)
+        DialogPassword.setTabOrder(self.usernameLineEdit, self.buttonBox)
 
     def retranslateUi(self, DialogPassword):
         DialogPassword.setWindowTitle(_translate("DialogPassword", "Enter and select connection details", None))
