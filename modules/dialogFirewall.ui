@@ -119,6 +119,13 @@
         <item>
          <layout class="QVBoxLayout" name="verticalLayout_3">
           <item>
+           <widget class="QPushButton" name="pushButton_enabled">
+            <property name="text">
+             <string>Disable</string>
+            </property>
+           </widget>
+          </item>
+          <item>
            <widget class="QPushButton" name="pushButton_refresh">
             <property name="text">
              <string>Refresh</string>
@@ -129,7 +136,14 @@
            </widget>
           </item>
           <item>
-           <widget class="QPushButton" name="pushButton_removeRule">
+           <widget class="QPushButton" name="pushButton_insert">
+            <property name="text">
+             <string>Insert Rule</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_remove">
             <property name="enabled">
              <bool>false</bool>
             </property>
@@ -170,8 +184,10 @@
   </layout>
  </widget>
  <tabstops>
+  <tabstop>pushButton_enabled</tabstop>
   <tabstop>pushButton_refresh</tabstop>
-  <tabstop>pushButton_removeRule</tabstop>
+  <tabstop>pushButton_remove</tabstop>
+  <tabstop>tableWidget</tabstop>
  </tabstops>
  <resources/>
  <connections/>
