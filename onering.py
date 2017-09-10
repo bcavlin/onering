@@ -15,13 +15,14 @@ class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
     def __init__(self, app):
         super(self.__class__, self).__init__()
         self.setupUi(self)
+        self.app = app
         self.connections = []
+
         self.tray = QSystemTrayIcon(self)
         self.dialog_password = DialogPassword(self)
         self.setup_connections()
         self.selected_connection = self.connections[0]
         self.dialog_firewall = DialogFirewall(self)
-        self.app = app
 
         self.setup_icon()
         self.setup_menu()
