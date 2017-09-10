@@ -38,6 +38,15 @@ class DialogPassword(QWidget):
             self.parent().connections.append(selected_connection)
             self.dialog.ui.previousConnectionsComboBox.addItem(
                 selected_connection.username + '@' + selected_connection.ip, selected_connection)
+        else:
+            for connection in self.parent().connections:
+                if connection.get_title() == selected_connection.get_title():
+                    connection.username = selected_connection.username
+                    connection.password = selected_connection.password
+                    connection.sudo_password = selected_connection.sudo_password
+
+            index = self.dialog.ui.previousConnectionsComboBox.currentIndex()
+            self.dialog.ui.previousConnectionsComboBox.setItemData(index, selected_connection)
 
         # encode(self.dialog.ui.sudoPasswordLineEdit.text().rjust(32))
         self.dialog.close()
@@ -46,8 +55,8 @@ class DialogPassword(QWidget):
         return self.dialog.ui.rememberPasswordsCheckBox.isChecked()
 
     def clicked_cancel(self):
-        self.dialog.ui.passwordLineEdit.setText('')
-        self.dialog.ui.sudoPasswordLineEdit.setText('')
+        # self.dialog.ui.passwordLineEdit.setText('')
+        # self.dialog.ui.sudoPasswordLineEdit.setText('')
         self.dialog.close()
 
     def load_connections(self):

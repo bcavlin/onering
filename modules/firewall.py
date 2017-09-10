@@ -38,6 +38,11 @@ class DialogFirewall(QWidget, Abstr):
             while not thread_call.isFinished():
                 self.parent().app.processEvents()
 
+            if thread_call.status:
+                self.dialog.ui.pushButton_enabled.setText('Disable')
+            else:
+                self.dialog.ui.pushButton_enabled.setText('Enable')
+
             if thread_call.data:
                 # clear table data
                 self.dialog.ui.tableWidget.setRowCount(0)
@@ -102,18 +107,22 @@ class DialogFirewallThread(QThread, Abstr):
             lines = self.result.splitlines()
             for line in lines:
                 parsed = []
-                match = re.match(r'^(\[.*\])\s*(.*)\s*(ALLOW|DENY|DROP|REJECT)\s(IN|OUT)?\s*(.*)', line)
-                if match:
-                    size = len(match.groups())
-                    parsed.append(match.group(1).strip())
-                    parsed.append(match.group(2).strip())
-                    if size == 4:
-                        parsed.append(match.group(3).strip())
-                        parsed.append(match.group(4).strip())
-                    else:
-                        parsed.append(match.group(3).strip() + ' ' + match.group(4).strip())
-                        parsed.append(match.group(5).strip())
-                    self.data.append(parsed)
+                match_status = re.match(r'^Status:\s*(.*)', line)
+                if match_status:
+                    self.status = True if match_status.group(1).strip() == 'active' else False
+                else:
+                    match = re.match(r'^(\[.*\])\s*(.*)\s*(ALLOW|DENY|DROP|REJECT)\s(IN|OUT)?\s*(.*)', line)
+                    if match:
+                        size = len(match.groups())
+                        parsed.append(match.group(1).strip())
+                        parsed.append(match.group(2).strip())
+                        if size == 4:
+                            parsed.append(match.group(3).strip())
+                            parsed.append(match.group(4).strip())
+                        else:
+                            parsed.append(match.group(3).strip() + ' ' + match.group(4).strip())
+                            parsed.append(match.group(5).strip())
+                        self.data.append(parsed)
 
     def validate_command(self):
         if self.parent().selected_connection.ip == '127.0.0.1':
@@ -140,6 +149,7 @@ class DialogFirewallThread(QThread, Abstr):
         self.result = ''
         # this holds parsed data ready for processing into GUI
         self.data = []
+        self.status = False
 
     def run(self):
         if self.command == 'validate':
