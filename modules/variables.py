@@ -34,6 +34,7 @@ class Connection:
         self.username = getpass.getuser()
         self.password = ''
         self.sudo_password = ''
+        self.store_password = False
 
     def get_title(self):
         return self.username + '@' + self.ip

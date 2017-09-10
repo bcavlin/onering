@@ -44,9 +44,10 @@ class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
         sys.exit(0)
 
     def close_data(self):
-        # for connection in self.connections:
-        #     connection.password = ''
-        #     connection.sudo_password = ''
+        for connection in self.connections:
+            if not connection.store_password:
+                connection.password = ''
+                connection.sudo_password = ''
 
         pickle.dump(self.connections, open('onering.p', 'wb'))
 
