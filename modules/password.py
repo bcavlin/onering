@@ -1,12 +1,12 @@
 import sip
 import subprocess
 
-from PyQt4 import QtCore
+from PyQt4 import QtCore, QtGui
 from PyQt4.QtCore import QThread
 from PyQt4.QtGui import QDialog, QWidget, QDialogButtonBox, QListWidgetItem
 
 from modules.dialogPassword_ui import Ui_DialogPassword
-from modules.variables import Connection
+from modules.variables import Connection, validate_ip_address
 
 
 class DialogPassword(QWidget):
@@ -22,10 +22,20 @@ class DialogPassword(QWidget):
         self.dialog.ui.buttonBox.button(QDialogButtonBox.Ok).clicked.connect(self.clicked_ok)
         self.dialog.ui.buttonBox.button(QDialogButtonBox.Cancel).clicked.connect(self.clicked_cancel)
         # setup signal for the item change in combobox
-        self.connect(self.dialog.ui.previousConnectionsComboBox, QtCore.SIGNAL("currentIndexChanged(const QString&)"),
+        self.connect(self.dialog.ui.previousConnectionsComboBox, QtCore.SIGNAL("currentIndexChanged(int)"),
                      self.change_selection)
+        self.connect(self.dialog.ui.useKeyFileCheckBox, QtCore.SIGNAL("stateChanged(int)"),
+                     self.use_key_file)
 
     def clicked_ok(self):
+
+        # validate IP
+        is_ok = validate_ip_address(self.dialog.ui.iPAddressLineEdit.text())
+        if not is_ok:
+            QtGui.QMessageBox.warning(self.parent(), "IP address invalid", "Please check your IP address",
+                                      QtGui.QMessageBox.Ok)
+            return
+
         # create new connection
         selected_connection = Connection()
         selected_connection.ip = self.dialog.ui.iPAddressLineEdit.text()
@@ -33,6 +43,7 @@ class DialogPassword(QWidget):
         selected_connection.password = self.dialog.ui.passwordLineEdit.text()
         selected_connection.sudo_password = self.dialog.ui.sudoPasswordLineEdit.text()
         selected_connection.store_password = self.dialog.ui.rememberPasswordsCheckBox.isChecked()
+        selected_connection.use_key_file = self.dialog.ui.useKeyFileCheckBox.isChecked()
 
         connection_found = False
         # compare new with old connection
@@ -53,6 +64,7 @@ class DialogPassword(QWidget):
             for connection in self.parent().connections:
                 if connection.get_title() == selected_connection.get_title():
                     connection.store_password = selected_connection.store_password
+                    connection.use_key_file = selected_connection.use_key_file
                     connection.username = selected_connection.username
                     connection.password = selected_connection.password
                     connection.sudo_password = selected_connection.sudo_password
@@ -80,6 +92,9 @@ class DialogPassword(QWidget):
     def add_message(self, message):
         self.dialog.ui.listWidget_messages.addItem(QListWidgetItem(message))
 
+    def use_key_file(self):
+        self.dialog.ui.passwordLineEdit.setEnabled(not self.dialog.ui.useKeyFileCheckBox.isChecked())
+
     def change_selection(self):
         self.dialog.ui.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
 
@@ -92,6 +107,7 @@ class DialogPassword(QWidget):
             self.dialog.ui.passwordLineEdit.setText(self.parent().current_selection.password)
             self.dialog.ui.sudoPasswordLineEdit.setText(self.parent().current_selection.sudo_password)
             self.dialog.ui.rememberPasswordsCheckBox.setChecked(self.parent().current_selection.store_password)
+            self.dialog.ui.useKeyFileCheckBox.setChecked(self.parent().current_selection.use_key_file)
 
             thread_call = DialogPasswordThread(self.parent(), self.parent().current_selection.ip)
             thread_call.start()
@@ -114,7 +130,7 @@ class DialogPasswordThread(QThread):
         self.command = ''
 
     def run(self):
-        self.command = ["nmap -oG - -sP {0} | awk '/Status: Up/{{print $0}}'".format(self.host)]
+        self.command = ["nmap -oG - -sP -PA22 {0} | awk '/Status: Up/{{print $0}}'".format(self.host)]
 
         self.result = subprocess.Popen(
             self.command,

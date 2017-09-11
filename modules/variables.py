@@ -1,5 +1,6 @@
 import base64
 import getpass
+import socket
 import uuid
 
 from Crypto.Cipher import AES
@@ -26,6 +27,21 @@ def auto_str(cls):
     return cls
 
 
+def use_sshpass(key_parameter, password):
+    if not key_parameter:
+        return ["sshpass", "-p", "{0}".format(password)]
+    else:
+        return []
+
+
+def validate_ip_address(ip):
+    try:
+        socket.inet_aton(ip)
+        return True
+    except:
+        return False
+
+
 @auto_str
 class Connection:
     def __init__(self):
@@ -35,6 +51,7 @@ class Connection:
         self.password = ''
         self.sudo_password = ''
         self.store_password = False
+        self.use_key_file = False
 
     def get_title(self):
         return self.username + '@' + self.ip

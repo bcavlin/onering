@@ -8,64 +8,72 @@ from PyQt4.QtGui import QDialog, QWidget
 
 from modules.abstr import Abstr
 from modules.dialogFirewall_ui import Ui_DialogFirewall
+from modules.variables import use_sshpass
 
 
 class DialogFirewall(QWidget, Abstr):
+    def enable_disable_firewall(self):
+        thread_call = DialogFirewallThread(self.parent(), self.dialog.ui.pushButton_enabled.text().lower())
+        thread_call.start()
+
+        while not thread_call.isFinished():
+            self.parent().app.processEvents()
+
+        self.execute_command()
+
     def validate_command(self):
-        if not self.enabled:
-            thread_call = DialogFirewallThread(self.parent(), 'validate')
-            thread_call.start()
+        thread_call = DialogFirewallThread(self.parent(), 'validate')
+        thread_call.start()
 
-            while not thread_call.isFinished():
-                self.parent().app.processEvents()
+        while not thread_call.isFinished():
+            self.parent().app.processEvents()
 
-            print(thread_call.result)
+        if thread_call.result:
+            enabled = True
+        else:
+            QtGui.QMessageBox.warning(self.parent(), "UFW not found", "Check if the UFW is installed",
+                                      QtGui.QMessageBox.Ok)
+            enabled = False
 
-            if thread_call.result:
-                self.enabled = True
-            else:
-                QtGui.QMessageBox.warning(self.parent(), "UFW not enabled", "Check if the UFW is installed",
-                                          QtGui.QMessageBox.Ok)
-                self.enabled = False
-
-        return self.enabled
+        return enabled
 
     def execute_command(self):
-        if self.enabled:
-            thread_call = DialogFirewallThread(self.parent(), 'execute')
-            thread_call.start()
+        self.dialog.ui.tableWidget.setRowCount(0)
+        self.selected_index = -1
 
-            while not thread_call.isFinished():
-                self.parent().app.processEvents()
+        thread_call = DialogFirewallThread(self.parent(), 'execute')
+        thread_call.start()
 
-            if thread_call.status:
-                self.dialog.ui.pushButton_enabled.setText('Disable')
-            else:
-                self.dialog.ui.pushButton_enabled.setText('Enable')
+        while not thread_call.isFinished():
+            self.parent().app.processEvents()
 
-            if thread_call.data:
-                # clear table data
-                self.dialog.ui.tableWidget.setRowCount(0)
-                self.selected_index = -1
+        self.dialog.ui.pushButton_enabled.setEnabled(True)
+        self.dialog.ui.pushButton_remove.setEnabled(False)
 
-                # parse new data
-                for data in thread_call.data:
-                    row_position = self.dialog.ui.tableWidget.rowCount()
-                    self.dialog.ui.tableWidget.insertRow(row_position)
-                    item1 = QtGui.QTableWidgetItem(data[0])  # number
-                    item1.setTextAlignment(QtCore.Qt.AlignCenter)
-                    self.dialog.ui.tableWidget.setItem(row_position, 0, item1)
-                    item2 = QtGui.QTableWidgetItem(data[1])  # to
-                    item2.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-                    self.dialog.ui.tableWidget.setItem(row_position, 1, item2)
-                    item3 = QtGui.QTableWidgetItem(data[2])  # action
-                    item3.setTextAlignment(QtCore.Qt.AlignCenter)
-                    self.dialog.ui.tableWidget.setItem(row_position, 2, item3)
-                    item4 = QtGui.QTableWidgetItem(data[3])  # from
-                    item4.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-                    self.dialog.ui.tableWidget.setItem(row_position, 3, item4)
+        if thread_call.status:
+            self.dialog.ui.pushButton_enabled.setText('Disable')
+            self.dialog.ui.pushButton_insert.setEnabled(True)
+        else:
+            self.dialog.ui.pushButton_enabled.setText('Enable')
+            self.dialog.ui.pushButton_insert.setEnabled(False)
 
-            print(thread_call.result)
+        if thread_call.data:
+            # parse new data
+            for data in thread_call.data:
+                row_position = self.dialog.ui.tableWidget.rowCount()
+                self.dialog.ui.tableWidget.insertRow(row_position)
+                item1 = QtGui.QTableWidgetItem(data[0])  # number
+                item1.setTextAlignment(QtCore.Qt.AlignCenter)
+                self.dialog.ui.tableWidget.setItem(row_position, 0, item1)
+                item2 = QtGui.QTableWidgetItem(data[1])  # to
+                item2.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+                self.dialog.ui.tableWidget.setItem(row_position, 1, item2)
+                item3 = QtGui.QTableWidgetItem(data[2])  # action
+                item3.setTextAlignment(QtCore.Qt.AlignCenter)
+                self.dialog.ui.tableWidget.setItem(row_position, 2, item3)
+                item4 = QtGui.QTableWidgetItem(data[3])  # from
+                item4.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+                self.dialog.ui.tableWidget.setItem(row_position, 3, item4)
 
     def __init__(self, parent):
         super().__init__(parent)
@@ -73,7 +81,6 @@ class DialogFirewall(QWidget, Abstr):
         self.dialog = QDialog(parent)
         self.dialog.ui = Ui_DialogFirewall()
         self.dialog.ui.setupUi(self.dialog)
-        self.dialog.ui.pushButton_refresh.clicked.connect(self.execute_command)
         self.dialog.ui.tableWidget.setColumnWidth(0, 50)
         self.dialog.ui.tableWidget.setColumnWidth(1, 200)
         self.dialog.ui.tableWidget.setColumnWidth(2, 100)
@@ -81,27 +88,77 @@ class DialogFirewall(QWidget, Abstr):
         self.dialog.ui.tableWidget.clicked.connect(self.table_row_selected)
         self.selected_index = -1
 
+        self.dialog.ui.pushButton_refresh.clicked.connect(self.execute_command)
+        self.dialog.ui.pushButton_enabled.clicked.connect(self.enable_disable_firewall)
+
     def table_row_selected(self):
         self.selected_index = self.dialog.ui.tableWidget.selectedIndexes()[0].row()
+        self.dialog.ui.pushButton_remove.setEnabled(True)
 
 
 class DialogFirewallThread(QThread, Abstr):
-    def execute_command(self):
-        if self.parent().selected_connection.ip == '127.0.0.1':
-            self.result = subprocess.Popen(
-                ["echo {0} | sudo -S ufw status numbered".format(self.parent().selected_connection.sudo_password)],
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL).stdout.read().decode('utf-8')
+    def is_local(self):
+        return self.parent().selected_connection.ip == '127.0.0.1'
+
+    def enable_firewall(self):
+        base_command = "echo {0} | sudo -S ufw --force enable"
+        if self.is_local():
+            command = [base_command.format(self.parent().selected_connection.sudo_password)]
         else:
-            self.result = subprocess.Popen(
-                ["sshpass", "-p", "{0}".format(self.parent().selected_connection.password), "ssh",
-                 "{0}@{1}".format(self.parent().selected_connection.username,
-                                  self.parent().selected_connection.ip),
-                 "echo {0} | sudo -S ufw status numbered".format(self.parent().selected_connection.sudo_password)],
-                shell=False,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL).stdout.read().decode('utf-8')
+            command = use_sshpass(self.parent().selected_connection.use_key_file,
+                                  self.parent().selected_connection.sudo_password) + ["ssh",
+                                                                                      "{0}@{1}".format(
+                                                                                          self.parent().selected_connection.username,
+                                                                                          self.parent().selected_connection.ip),
+                                                                                      base_command.format(
+                                                                                          self.parent().selected_connection.sudo_password)]
+
+        self.result = subprocess.Popen(
+            command,
+            shell=False if len(command) > 1 else True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL).stdout.read().decode('utf-8')
+        print(self.result)
+
+    def disable_firewall(self):
+        base_command = "echo {0} | sudo -S ufw disable"
+        if self.is_local():
+            command = [base_command.format(self.parent().selected_connection.sudo_password)]
+        else:
+            command = use_sshpass(self.parent().selected_connection.use_key_file,
+                                  self.parent().selected_connection.sudo_password) + ["ssh",
+                                                                                      "{0}@{1}".format(
+                                                                                          self.parent().selected_connection.username,
+                                                                                          self.parent().selected_connection.ip),
+                                                                                      base_command.format(
+                                                                                          self.parent().selected_connection.sudo_password)]
+
+        self.result = subprocess.Popen(
+            command,
+            shell=False if len(command) > 1 else True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL).stdout.read().decode('utf-8')
+        print(self.result)
+
+    def execute_command(self):
+        base_command = "echo {0} | sudo -S ufw status numbered"
+        if self.is_local():
+            command = [base_command.format(self.parent().selected_connection.sudo_password)]
+        else:
+            command = use_sshpass(self.parent().selected_connection.use_key_file,
+                                  self.parent().selected_connection.sudo_password) + ["ssh",
+                                                                                      "{0}@{1}".format(
+                                                                                          self.parent().selected_connection.username,
+                                                                                          self.parent().selected_connection.ip),
+                                                                                      base_command.format(
+                                                                                          self.parent().selected_connection.sudo_password)]
+
+        self.result = subprocess.Popen(
+            command,
+            shell=False if len(command) > 1 else True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL).stdout.read().decode('utf-8')
+        print(self.result)
 
         if self.result:
             lines = self.result.splitlines()
@@ -125,19 +182,24 @@ class DialogFirewallThread(QThread, Abstr):
                         self.data.append(parsed)
 
     def validate_command(self):
-        if self.parent().selected_connection.ip == '127.0.0.1':
-            count = int(
-                subprocess.Popen("which ufw ssh sshpass | awk 'END{print NR}'", shell=True, stdout=subprocess.PIPE,
-                                 stderr=subprocess.DEVNULL).stdout.read().decode('utf-8').strip())
+        base_command = "which ufw | awk 'END{print NR}'"
+        if self.is_local():
+            command = [base_command]
         else:
-            count = int(
-                subprocess.Popen(["sshpass", "-p", "{0}".format(self.parent().selected_connection.password), "ssh",
-                                  "{0}@{1}".format(self.parent().selected_connection.username,
-                                                   self.parent().selected_connection.ip),
-                                  "which ufw ssh sshpass | awk 'END{print NR}'"], shell=False, stdout=subprocess.PIPE,
-                                 stderr=subprocess.DEVNULL).stdout.read().decode('utf-8').strip())
+            command = use_sshpass(self.parent().selected_connection.use_key_file,
+                                  self.parent().selected_connection.sudo_password) + ["ssh",
+                                                                                      "{0}@{1}".format(
+                                                                                          self.parent().selected_connection.username,
+                                                                                          self.parent().selected_connection.ip),
+                                                                                      base_command]
 
-        if count == 3:
+        result = subprocess.Popen(command,
+                                  shell=False if len(command) > 1 else True,
+                                  stdout=subprocess.PIPE,
+                                  stderr=subprocess.DEVNULL).stdout.read().decode('utf-8').strip()
+        print(result)
+
+        if result == '1':
             self.result = True
         else:
             self.result = False
@@ -154,5 +216,9 @@ class DialogFirewallThread(QThread, Abstr):
     def run(self):
         if self.command == 'validate':
             self.validate_command()
-        else:
+        elif self.command == 'execute':
             self.execute_command()
+        elif self.command == 'enable':
+            self.enable_firewall()
+        elif self.command == 'disable':
+            self.disable_firewall()
