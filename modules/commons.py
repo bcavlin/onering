@@ -1,9 +1,11 @@
 import base64
 import getpass
 import socket
+import subprocess
 import uuid
 
 from Crypto.Cipher import AES
+from PyQt4.QtCore import QThread
 
 cipher = AES.new(uuid.uuid4().hex, AES.MODE_ECB)
 
@@ -40,6 +42,33 @@ def validate_ip_address(ip):
         return True
     except:
         return False
+
+
+# usage @static_vars(counter=0)
+def static_vars(**kwargs):
+    def decorate(func):
+        for k in kwargs:
+            setattr(func, k, kwargs[k])
+        return func
+
+    return decorate
+
+
+class ValidateConnectionThread(QThread):
+    def __init__(self, parent, host):
+        super().__init__(parent)
+        self.result = ''
+        self.host = host
+        self.command = ''
+
+    def run(self):
+        self.command = ["nmap -oG - -sP -PA22 {0} | awk '/Status: Up/{{print $0}}'".format(self.host)]
+
+        self.result = subprocess.Popen(
+            self.command,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL).stdout.read().decode('utf-8')
 
 
 @auto_str

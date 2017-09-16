@@ -6,9 +6,10 @@ from PyQt4.QtGui import QMainWindow, QSystemTrayIcon, QIcon, QMenu, QApplication
 from screeninfo import get_monitors
 
 import oneringui_ui
+from modules.connections import DialogConnections
 from modules.firewall import DialogFirewall
 from modules.password import DialogPassword
-from modules.variables import Connection
+from modules.commons import Connection, ValidateConnectionThread
 
 
 class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
@@ -23,12 +24,14 @@ class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
         self.setup_connections()
         self.selected_connection = self.connections[0]
         self.dialog_firewall = DialogFirewall(self)
+        self.dialog_connections = DialogConnections(self)
 
         self.setup_icon()
         self.setup_menu()
 
         self.pushButton_Firewall.clicked.connect(self.show_firewall_dialog)
         self.pushButton_sudo.clicked.connect(self.show_password_dialog)
+        self.pushButton_connections.clicked.connect(self.show_connections_dialog)
 
     def setup_connections(self):
         try:
@@ -37,7 +40,7 @@ class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
             self.connections.append(Connection())
 
         self.dialog_password.load_connections()
-        self.setWindowTitle(self.windowTitle() + ' [' + self.connections[0].get_title() + ']')
+        self.setWindowTitle('OneRing [' + self.connections[0].get_title() + ']')
 
     def close_data_exit(self):
         self.close_data()
@@ -70,17 +73,54 @@ class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
         self.tray.setContextMenu(menu)
         self.tray.show()
 
-    def show_firewall_dialog(self):
-        if len(self.selected_connection.sudo_password) > 0 and self.dialog_firewall.validate_command():
-            self.dialog_firewall.dialog.setWindowTitle('Firewall (UFW): [' + self.selected_connection.get_title() + ']')
-            self.dialog_firewall.dialog.ui.tableWidget.setRowCount(0)
-            self.dialog_firewall.dialog.show()
+    def show_connections_dialog(self):
+        thread_call = ValidateConnectionThread(self, self.current_selection.ip)
+        thread_call.start()
+
+        while not thread_call.isFinished():
+            self.app.processEvents()
+
+        if thread_call.result:
+            if len(self.selected_connection.sudo_password) > 0 and self.dialog_connections.validate_command():
+                self.dialog_connections.dialog.setWindowTitle(
+                    'Connections: [' + self.selected_connection.get_title() + ']')
+                self.dialog_connections.dialog.ui.tableWidget.setRowCount(0)
+                self.dialog_connections.dialog.ui.tableWidget_2.setRowCount(0)
+                self.dialog_connections.dialog.show()
+            else:
+                QtGui.QMessageBox.warning(self.parent(), "Password warning",
+                                          "sudo password is required for this operation",
+                                          QtGui.QMessageBox.Ok)
         else:
-            QtGui.QMessageBox.warning(self.parent(), "Password warning", "sudo password is required for this operation",
+            QtGui.QMessageBox.warning(self.parent(), "Connection warning",
+                                      "We cannot establish conection to {0}".format(self.current_selection.ip),
+                                      QtGui.QMessageBox.Ok)
+
+    def show_firewall_dialog(self):
+        thread_call = ValidateConnectionThread(self, self.current_selection.ip)
+        thread_call.start()
+
+        while not thread_call.isFinished():
+            self.app.processEvents()
+
+        if thread_call.result:
+            if len(self.selected_connection.sudo_password) > 0 and self.dialog_firewall.validate_command():
+                self.dialog_firewall.dialog.setWindowTitle(
+                    'Firewall (UFW): [' + self.selected_connection.get_title() + ']')
+                self.dialog_firewall.dialog.ui.tableWidget.setRowCount(0)
+                self.dialog_firewall.dialog.show()
+            else:
+                QtGui.QMessageBox.warning(self.parent(), "Password warning",
+                                          "sudo password is required for this operation",
+                                          QtGui.QMessageBox.Ok)
+        else:
+            QtGui.QMessageBox.warning(self.parent(), "Connection warning",
+                                      "We cannot establish conection to {0}".format(self.current_selection.ip),
                                       QtGui.QMessageBox.Ok)
 
     def show_password_dialog(self):
         self.dialog_password.dialog.exec_()
+        self.setWindowTitle('OneRing [' + self.selected_connection.get_title() + ']')
 
     def show_application(self):
         self.show()

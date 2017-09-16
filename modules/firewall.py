@@ -8,7 +8,7 @@ from PyQt4.QtGui import QDialog, QWidget
 
 from modules.abstr import Abstr
 from modules.dialogFirewall_ui import Ui_DialogFirewall
-from modules.variables import use_sshpass
+from modules.commons import use_sshpass
 
 
 class DialogFirewall(QWidget, Abstr):

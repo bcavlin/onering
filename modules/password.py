@@ -1,12 +1,10 @@
 import sip
-import subprocess
 
 from PyQt4 import QtCore, QtGui
-from PyQt4.QtCore import QThread
 from PyQt4.QtGui import QDialog, QWidget, QDialogButtonBox, QListWidgetItem
 
 from modules.dialogPassword_ui import Ui_DialogPassword
-from modules.variables import Connection, validate_ip_address
+from modules.commons import Connection, validate_ip_address, ValidateConnectionThread
 
 
 class DialogPassword(QWidget):
@@ -51,14 +49,13 @@ class DialogPassword(QWidget):
             if connection.ip == selected_connection.ip and connection.username == selected_connection.username:
                 connection_found = True
 
-        # set selected connection to new parameters in any case
-        self.parent().selected_connection = selected_connection
-
         if not connection_found:
             # add new connection into list and parent items
             self.parent().connections.append(selected_connection)
             self.dialog.ui.previousConnectionsComboBox.addItem(
                 selected_connection.username + '@' + selected_connection.ip, selected_connection)
+            self.dialog.ui.previousConnectionsComboBox.setCurrentIndex(
+                self.dialog.ui.previousConnectionsComboBox.count() - 1)
         else:
             # if connection found then update current connection details with new ones
             for connection in self.parent().connections:
@@ -71,6 +68,9 @@ class DialogPassword(QWidget):
 
             index = self.dialog.ui.previousConnectionsComboBox.currentIndex()
             self.dialog.ui.previousConnectionsComboBox.setItemData(index, selected_connection)
+
+        # set selected connection to new parameters in any case
+        self.parent().selected_connection = selected_connection
 
         # encode(self.dialog.ui.sudoPasswordLineEdit.text().rjust(32))
         self.dialog.close()
@@ -101,39 +101,21 @@ class DialogPassword(QWidget):
         index = self.dialog.ui.previousConnectionsComboBox.currentIndex()
         data = self.dialog.ui.previousConnectionsComboBox.itemData(index, QtCore.Qt.UserRole)
         if data:
-            self.parent().current_selection = data
-            self.dialog.ui.iPAddressLineEdit.setText(self.parent().current_selection.ip)
-            self.dialog.ui.usernameLineEdit.setText(self.parent().current_selection.username)
-            self.dialog.ui.passwordLineEdit.setText(self.parent().current_selection.password)
-            self.dialog.ui.sudoPasswordLineEdit.setText(self.parent().current_selection.sudo_password)
-            self.dialog.ui.rememberPasswordsCheckBox.setChecked(self.parent().current_selection.store_password)
-            self.dialog.ui.useKeyFileCheckBox.setChecked(self.parent().current_selection.use_key_file)
-
-            thread_call = DialogPasswordThread(self.parent(), self.parent().current_selection.ip)
+            thread_call = ValidateConnectionThread(self.parent(), data.ip)
             thread_call.start()
 
             while not thread_call.isFinished():
                 self.parent().app.processEvents()
 
             if thread_call.result:
-                self.add_message(self.parent().current_selection.ip + ' is up')
+                self.parent().current_selection = data
+                self.dialog.ui.iPAddressLineEdit.setText(self.parent().current_selection.ip)
+                self.dialog.ui.usernameLineEdit.setText(self.parent().current_selection.username)
+                self.dialog.ui.passwordLineEdit.setText(self.parent().current_selection.password)
+                self.dialog.ui.sudoPasswordLineEdit.setText(self.parent().current_selection.sudo_password)
+                self.dialog.ui.rememberPasswordsCheckBox.setChecked(self.parent().current_selection.store_password)
+                self.dialog.ui.useKeyFileCheckBox.setChecked(self.parent().current_selection.use_key_file)
+                self.add_message(data.ip + ' is up')
                 self.dialog.ui.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
             else:
-                self.add_message(self.parent().current_selection.ip + ' is down')
-
-
-class DialogPasswordThread(QThread):
-    def __init__(self, parent, host):
-        super().__init__(parent)
-        self.result = ''
-        self.host = host
-        self.command = ''
-
-    def run(self):
-        self.command = ["nmap -oG - -sP -PA22 {0} | awk '/Status: Up/{{print $0}}'".format(self.host)]
-
-        self.result = subprocess.Popen(
-            self.command,
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL).stdout.read().decode('utf-8')
+                self.add_message(data.ip + ' is down')
