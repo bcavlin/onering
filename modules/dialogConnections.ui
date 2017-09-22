@@ -273,7 +273,6 @@
  <tabstops>
   <tabstop>tabWidget</tabstop>
   <tabstop>pushButton_start_netstat</tabstop>
-  <tabstop>tableWidget</tabstop>
   <tabstop>pushButton_start_tcpdump</tabstop>
   <tabstop>tableWidget_2</tabstop>
  </tabstops>

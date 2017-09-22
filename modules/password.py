@@ -1,5 +1,6 @@
 import sip
 
+import time
 from PyQt4 import QtCore, QtGui
 from PyQt4.QtGui import QDialog, QWidget, QDialogButtonBox, QListWidgetItem
 
@@ -106,6 +107,7 @@ class DialogPassword(QWidget):
 
             while not thread_call.isFinished():
                 self.parent().app.processEvents()
+                time.sleep(0.1)
 
             if thread_call.result:
                 self.parent().current_selection = data

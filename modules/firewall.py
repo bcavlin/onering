@@ -2,6 +2,7 @@ import re
 import sip
 import subprocess
 
+import time
 from PyQt4 import QtGui, QtCore
 from PyQt4.QtCore import QThread
 from PyQt4.QtGui import QDialog, QWidget
@@ -18,6 +19,7 @@ class DialogFirewall(QWidget, Abstr):
 
         while not thread_call.isFinished():
             self.parent().app.processEvents()
+            time.sleep(0.1)
 
         self.execute_command()
 
@@ -27,6 +29,7 @@ class DialogFirewall(QWidget, Abstr):
 
         while not thread_call.isFinished():
             self.parent().app.processEvents()
+            time.sleep(0.1)
 
         if thread_call.result:
             enabled = True
@@ -46,6 +49,7 @@ class DialogFirewall(QWidget, Abstr):
 
         while not thread_call.isFinished():
             self.parent().app.processEvents()
+            time.sleep(0.1)
 
         self.dialog.ui.pushButton_enabled.setEnabled(True)
         self.dialog.ui.pushButton_remove.setEnabled(False)
