@@ -33,7 +33,7 @@
            </property>
            <layout class="QVBoxLayout" name="verticalLayout_3">
             <item>
-             <widget class="QTableWidget" name="tableWidget">
+             <widget class="QTableView" name="tableView">
               <property name="autoScroll">
                <bool>false</bool>
               </property>
@@ -46,62 +46,15 @@
               <property name="dragDropOverwriteMode">
                <bool>false</bool>
               </property>
+              <property name="selectionMode">
+               <enum>QAbstractItemView::SingleSelection</enum>
+              </property>
               <property name="selectionBehavior">
                <enum>QAbstractItemView::SelectRows</enum>
               </property>
               <property name="sortingEnabled">
                <bool>true</bool>
               </property>
-              <column>
-               <property name="text">
-                <string>Proto</string>
-               </property>
-              </column>
-              <column>
-               <property name="text">
-                <string>Local Addr</string>
-               </property>
-              </column>
-              <column>
-               <property name="text">
-                <string>Local Port</string>
-               </property>
-              </column>
-              <column>
-               <property name="text">
-                <string>Remote Addr</string>
-               </property>
-              </column>
-              <column>
-               <property name="text">
-                <string>Remote Port</string>
-               </property>
-              </column>
-              <column>
-               <property name="text">
-                <string>State</string>
-               </property>
-              </column>
-              <column>
-               <property name="text">
-                <string>PID</string>
-               </property>
-              </column>
-              <column>
-               <property name="text">
-                <string>Application</string>
-               </property>
-              </column>
-              <column>
-               <property name="text">
-                <string>SHA256</string>
-               </property>
-              </column>
-              <column>
-               <property name="text">
-                <string>Last</string>
-               </property>
-              </column>
              </widget>
             </item>
            </layout>

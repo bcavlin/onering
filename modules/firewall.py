@@ -1,15 +1,14 @@
 import re
 import sip
-import subprocess
-
 import time
+
 from PyQt4 import QtGui, QtCore
 from PyQt4.QtCore import QThread
 from PyQt4.QtGui import QDialog, QWidget
 
 from modules.abstr import Abstr
+from modules.commons import run_remote_command
 from modules.dialogFirewall_ui import Ui_DialogFirewall
-from modules.commons import use_sshpass
 
 
 class DialogFirewall(QWidget, Abstr):
@@ -101,113 +100,6 @@ class DialogFirewall(QWidget, Abstr):
 
 
 class DialogFirewallThread(QThread, Abstr):
-    def is_local(self):
-        return self.parent().selected_connection.ip == '127.0.0.1'
-
-    def enable_firewall(self):
-        base_command = "echo {0} | sudo -S ufw --force enable"
-        if self.is_local():
-            command = [base_command.format(self.parent().selected_connection.sudo_password)]
-        else:
-            command = use_sshpass(self.parent().selected_connection.use_key_file,
-                                  self.parent().selected_connection.sudo_password) + ["ssh",
-                                                                                      "{0}@{1}".format(
-                                                                                          self.parent().selected_connection.username,
-                                                                                          self.parent().selected_connection.ip),
-                                                                                      base_command.format(
-                                                                                          self.parent().selected_connection.sudo_password)]
-
-        self.result = subprocess.Popen(
-            command,
-            shell=False if len(command) > 1 else True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL).stdout.read().decode('utf-8')
-        print(self.result)
-
-    def disable_firewall(self):
-        base_command = "echo {0} | sudo -S ufw disable"
-        if self.is_local():
-            command = [base_command.format(self.parent().selected_connection.sudo_password)]
-        else:
-            command = use_sshpass(self.parent().selected_connection.use_key_file,
-                                  self.parent().selected_connection.sudo_password) + ["ssh",
-                                                                                      "{0}@{1}".format(
-                                                                                          self.parent().selected_connection.username,
-                                                                                          self.parent().selected_connection.ip),
-                                                                                      base_command.format(
-                                                                                          self.parent().selected_connection.sudo_password)]
-
-        self.result = subprocess.Popen(
-            command,
-            shell=False if len(command) > 1 else True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL).stdout.read().decode('utf-8')
-        print(self.result)
-
-    def execute_command(self):
-        base_command = "echo {0} | sudo -S ufw status numbered"
-        if self.is_local():
-            command = [base_command.format(self.parent().selected_connection.sudo_password)]
-        else:
-            command = use_sshpass(self.parent().selected_connection.use_key_file,
-                                  self.parent().selected_connection.sudo_password) + ["ssh",
-                                                                                      "{0}@{1}".format(
-                                                                                          self.parent().selected_connection.username,
-                                                                                          self.parent().selected_connection.ip),
-                                                                                      base_command.format(
-                                                                                          self.parent().selected_connection.sudo_password)]
-
-        self.result = subprocess.Popen(
-            command,
-            shell=False if len(command) > 1 else True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL).stdout.read().decode('utf-8')
-        print(self.result)
-
-        if self.result:
-            lines = self.result.splitlines()
-            for line in lines:
-                parsed = []
-                match_status = re.match(r'^Status:\s*(.*)', line)
-                if match_status:
-                    self.status = True if match_status.group(1).strip() == 'active' else False
-                else:
-                    match = re.match(r'^(\[.*\])\s*(.*)\s*(ALLOW|DENY|DROP|REJECT)\s(IN|OUT)?\s*(.*)', line)
-                    if match:
-                        size = len(match.groups())
-                        parsed.append(match.group(1).strip())
-                        parsed.append(match.group(2).strip())
-                        if size == 4:
-                            parsed.append(match.group(3).strip())
-                            parsed.append(match.group(4).strip())
-                        else:
-                            parsed.append(match.group(3).strip() + ' ' + match.group(4).strip())
-                            parsed.append(match.group(5).strip())
-                        self.data.append(parsed)
-
-    def validate_command(self):
-        base_command = "which ufw | awk 'END{print NR}'"
-        if self.is_local():
-            command = [base_command]
-        else:
-            command = use_sshpass(self.parent().selected_connection.use_key_file,
-                                  self.parent().selected_connection.sudo_password) + ["ssh",
-                                                                                      "{0}@{1}".format(
-                                                                                          self.parent().selected_connection.username,
-                                                                                          self.parent().selected_connection.ip),
-                                                                                      base_command]
-
-        result = subprocess.Popen(command,
-                                  shell=False if len(command) > 1 else True,
-                                  stdout=subprocess.PIPE,
-                                  stderr=subprocess.DEVNULL).stdout.read().decode('utf-8').strip()
-        print(result)
-
-        if result == '1':
-            self.result = True
-        else:
-            self.result = False
-
     def __init__(self, parent, command='validate'):
         super().__init__(parent)
         self.command = command
@@ -226,3 +118,76 @@ class DialogFirewallThread(QThread, Abstr):
             self.enable_firewall()
         elif self.command == 'disable':
             self.disable_firewall()
+
+    def enable_firewall(self):
+        process = run_remote_command("ufw --force enable",
+                                     self.parent().selected_connection.ip,
+                                     self.parent().selected_connection.username,
+                                     self.parent().selected_connection.password,
+                                     self.parent().selected_connection.use_key_file,
+                                     self.parent().selected_connection.sudo_password,
+                                     use_sudo=True)
+        self.result = process.stdout.read().decode('utf-8').strip()
+        print(self.result)
+
+    def disable_firewall(self):
+        process = run_remote_command("ufw disable",
+                                     self.parent().selected_connection.ip,
+                                     self.parent().selected_connection.username,
+                                     self.parent().selected_connection.password,
+                                     self.parent().selected_connection.use_key_file,
+                                     self.parent().selected_connection.sudo_password,
+                                     use_sudo=True)
+        self.result = process.stdout.read().decode('utf-8').strip()
+        print(self.result)
+
+    def execute_command(self):
+        process = run_remote_command("ufw status numbered",
+                                     self.parent().selected_connection.ip,
+                                     self.parent().selected_connection.username,
+                                     self.parent().selected_connection.password,
+                                     self.parent().selected_connection.use_key_file,
+                                     self.parent().selected_connection.sudo_password,
+                                     use_sudo=True)
+        self.result = process.stdout.read().decode('utf-8').strip()
+        print(self.result)
+
+        if self.result:
+            self.split_message()
+
+    def split_message(self):
+        lines = self.result.splitlines()
+        for line in lines:
+            parsed = []
+            match_status = re.match(r'^Status:\s*(.*)', line)
+            if match_status:
+                self.status = True if match_status.group(1).strip() == 'active' else False
+            else:
+                match = re.match(r'^(\[.*\])\s*(.*)\s*(ALLOW|DENY|DROP|REJECT)\s(IN|OUT)?\s*(.*)', line)
+                if match:
+                    size = len(match.groups())
+                    parsed.append(match.group(1).strip())
+                    parsed.append(match.group(2).strip())
+                    if size == 4:
+                        parsed.append(match.group(3).strip())
+                        parsed.append(match.group(4).strip())
+                    else:
+                        parsed.append(match.group(3).strip() + ' ' + match.group(4).strip())
+                        parsed.append(match.group(5).strip())
+                    self.data.append(parsed)
+
+    def validate_command(self):
+        process = run_remote_command("which ufw | awk 'END{{print NR}}'",
+                                     self.parent().selected_connection.ip,
+                                     self.parent().selected_connection.username,
+                                     self.parent().selected_connection.password,
+                                     self.parent().selected_connection.use_key_file,
+                                     self.parent().selected_connection.sudo_password,
+                                     use_sudo=True)
+        self.result = process.stdout.read().decode('utf-8').strip()
+        print(self.result)
+
+        if self.result == '1':
+            self.result = True
+        else:
+            self.result = False

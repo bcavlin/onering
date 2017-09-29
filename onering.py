@@ -1,4 +1,5 @@
 import pickle
+import random
 import sys
 
 from PyQt4 import QtGui
@@ -84,8 +85,9 @@ class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
             if len(self.selected_connection.sudo_password) > 0 and self.dialog_connections.validate_command():
                 self.dialog_connections.dialog.setWindowTitle(
                     'Connections: [' + self.selected_connection.get_title() + ']')
-                self.dialog_connections.dialog.ui.tableWidget.setRowCount(0)
+                self.dialog_connections.dialog.ui.tableView.model().reset()
                 self.dialog_connections.dialog.ui.tableWidget_2.setRowCount(0)
+                self.dialog_connections.dialog.move(random.randint(100, 500), random.randint(100, 300))
                 self.dialog_connections.dialog.show()
             else:
                 QtGui.QMessageBox.warning(self.parent(), "Password warning",
@@ -108,6 +110,7 @@ class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
                 self.dialog_firewall.dialog.setWindowTitle(
                     'Firewall (UFW): [' + self.selected_connection.get_title() + ']')
                 self.dialog_firewall.dialog.ui.tableWidget.setRowCount(0)
+                self.dialog_firewall.dialog.move(random.randint(100, 800), random.randint(100, 500))
                 self.dialog_firewall.dialog.show()
             else:
                 QtGui.QMessageBox.warning(self.parent(), "Password warning",
@@ -119,6 +122,7 @@ class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
                                       QtGui.QMessageBox.Ok)
 
     def show_password_dialog(self):
+        self.dialog_password.dialog.move(random.randint(100, 800), random.randint(100, 500))
         self.dialog_password.dialog.exec_()
         self.setWindowTitle('OneRing [' + self.selected_connection.get_title() + ']')
 

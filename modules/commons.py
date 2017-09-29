@@ -55,6 +55,10 @@ def static_vars(**kwargs):
 
 
 class ValidateConnectionThread(QThread):
+    """
+    This class is used to validate connection to the machine that is selected for the operation
+    """
+
     def __init__(self, parent, host):
         super().__init__(parent)
         self.result = ''
@@ -68,7 +72,7 @@ class ValidateConnectionThread(QThread):
             self.command,
             shell=True,
             stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL).stdout.read().decode('utf-8')
+            stderr=subprocess.DEVNULL).stdout.read().decode('utf-8').strip()
 
 
 @auto_str
@@ -84,3 +88,37 @@ class Connection:
 
     def get_title(self):
         return self.username + '@' + self.ip
+
+
+def run_remote_command(command, ip, username, password, use_key_file, sudo_password, use_sudo=True, process_=None):
+    """
+    :param command:
+    :param ip:
+    :param username:
+    :param password:
+    :param use_key_file:
+    :param sudo_password:
+    :param use_sudo:
+    :param subprocess.Popen process_:
+    :return:
+    """
+    if sudo_password and use_sudo:
+        base_command = "echo {0} | sudo -S " + command.strip()
+        base_command = base_command.format(sudo_password)
+    else:
+        base_command = command.strip()
+
+    if ip.strip() == '127.0.0.1':
+        command = [base_command]
+    else:
+        command = use_sshpass(use_key_file, password) + ["ssh", "{0}@{1}".format(username, ip),
+                                                         base_command]
+
+    if process_:
+        command.append('\n')
+        process_.stdin.write(' '.join(command).encode())
+        process_.stdin.flush()
+        return process_.stdout.readline().decode('utf-8')
+    else:
+        return subprocess.Popen(command, shell=False if len(command) > 1 else True, stdout=subprocess.PIPE,
+                                stderr=subprocess.DEVNULL, stdin=subprocess.PIPE, bufsize=1)
