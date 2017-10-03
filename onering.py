@@ -1,3 +1,4 @@
+import logging
 import pickle
 import random
 import sys
@@ -7,25 +8,24 @@ from PyQt4.QtGui import QMainWindow, QSystemTrayIcon, QIcon, QMenu, QApplication
 from screeninfo import get_monitors
 
 import oneringui_ui
-from modules.connections import DialogConnections
+from modules.commons import Connection, ValidateConnectionThread
+from modules.connections2 import WindowConnections
 from modules.firewall import DialogFirewall
 from modules.password import DialogPassword
-from modules.commons import Connection, ValidateConnectionThread
 
 
 class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
-    def __init__(self, app):
-        super(self.__class__, self).__init__()
+    def __init__(self):
+        # super(self.__class__, self).__init__()
+        QMainWindow.__init__(self)
         self.setupUi(self)
-        self.app = app
         self.connections = []
-
         self.tray = QSystemTrayIcon(self)
         self.dialog_password = DialogPassword(self)
         self.setup_connections()
         self.selected_connection = self.connections[0]
         self.dialog_firewall = DialogFirewall(self)
-        self.dialog_connections = DialogConnections(self)
+        self.windows_list = []
 
         self.setup_icon()
         self.setup_menu()
@@ -33,9 +33,12 @@ class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
         self.pushButton_Firewall.clicked.connect(self.show_firewall_dialog)
         self.pushButton_sudo.clicked.connect(self.show_password_dialog)
         self.pushButton_connections.clicked.connect(self.show_connections_dialog)
+        logging.debug('Created main application')
 
     def setup_connections(self):
+        logging.debug('setup_connections')
         try:
+            logging.debug('Loading connections from pickle')
             self.connections = pickle.load(open('onering.p', 'rb'))
         except FileNotFoundError:
             self.connections.append(Connection())
@@ -44,10 +47,12 @@ class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
         self.setWindowTitle('OneRing [' + self.connections[0].get_title() + ']')
 
     def close_data_exit(self):
+        logging.debug('close_data_exit')
         self.close_data()
         sys.exit(0)
 
     def close_data(self):
+        logging.debug('close_data')
         for connection in self.connections:
             if not connection.store_password:
                 connection.password = ''
@@ -56,6 +61,7 @@ class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
         pickle.dump(self.connections, open('onering.p', 'wb'))
 
     def closeEvent(self, QCloseEvent):
+        logging.debug('closeEvent')
         self.close_data()
         super().closeEvent(QCloseEvent)
 
@@ -75,35 +81,30 @@ class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
         self.tray.show()
 
     def show_connections_dialog(self):
-        thread_call = ValidateConnectionThread(self, self.current_selection.ip)
+        thread_call = ValidateConnectionThread(self, self.selected_connection)
         thread_call.start()
-
-        while not thread_call.isFinished():
-            self.app.processEvents()
+        thread_call.wait()
 
         if thread_call.result:
-            if len(self.selected_connection.sudo_password) > 0 and self.dialog_connections.validate_command():
-                self.dialog_connections.dialog.setWindowTitle(
-                    'Connections: [' + self.selected_connection.get_title() + ']')
-                self.dialog_connections.dialog.ui.tableView.model().reset()
-                self.dialog_connections.dialog.ui.tableWidget_2.setRowCount(0)
-                self.dialog_connections.dialog.move(random.randint(100, 500), random.randint(100, 300))
-                self.dialog_connections.dialog.show()
+            window_connection = WindowConnections(selected_connection=self.selected_connection)
+            if len(self.selected_connection.sudo_password) > 0 and window_connection.validate_command():
+                window_connection.setWindowTitle('Connections: [' + self.selected_connection.get_title() + ']')
+                window_connection.move(random.randint(100, 500), random.randint(100, 300))
+                self.windows_list.append(window_connection)  # save window so it is not garbage collected
+                window_connection.show()
             else:
-                QtGui.QMessageBox.warning(self.parent(), "Password warning",
-                                          "sudo password is required for this operation",
+                QtGui.QMessageBox.warning(self.parent(), "Requirements warning",
+                                          "Required: sudo password, netstat, readlink, sha1sum",
                                           QtGui.QMessageBox.Ok)
         else:
             QtGui.QMessageBox.warning(self.parent(), "Connection warning",
-                                      "We cannot establish conection to {0}".format(self.current_selection.ip),
+                                      "We cannot establish connection to {0}".format(self.selected_connection.ip),
                                       QtGui.QMessageBox.Ok)
 
     def show_firewall_dialog(self):
-        thread_call = ValidateConnectionThread(self, self.current_selection.ip)
+        thread_call = ValidateConnectionThread(self, self.selected_connection)
         thread_call.start()
-
-        while not thread_call.isFinished():
-            self.app.processEvents()
+        thread_call.wait()
 
         if thread_call.result:
             if len(self.selected_connection.sudo_password) > 0 and self.dialog_firewall.validate_command():
@@ -131,8 +132,9 @@ class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
 
 
 def main():
+    logging.basicConfig(level=logging.DEBUG)
     app = QApplication(sys.argv)
-    form = OneRingApp(app)
+    form = OneRingApp()
     m = get_monitors()[0]
     form.move(m.width - 250, 50)
     sys.exit(app.exec_())

@@ -102,12 +102,9 @@ class DialogPassword(QWidget):
         index = self.dialog.ui.previousConnectionsComboBox.currentIndex()
         data = self.dialog.ui.previousConnectionsComboBox.itemData(index, QtCore.Qt.UserRole)
         if data:
-            thread_call = ValidateConnectionThread(self.parent(), data.ip)
+            thread_call = ValidateConnectionThread(self.parent(), data)
             thread_call.start()
-
-            while not thread_call.isFinished():
-                self.parent().app.processEvents()
-                time.sleep(0.1)
+            thread_call.wait()
 
             if thread_call.result:
                 self.parent().current_selection = data

@@ -1,5 +1,6 @@
 import base64
 import getpass
+import logging
 import socket
 import subprocess
 import uuid
@@ -59,14 +60,15 @@ class ValidateConnectionThread(QThread):
     This class is used to validate connection to the machine that is selected for the operation
     """
 
-    def __init__(self, parent, host):
+    def __init__(self, parent, selected_connection):
         super().__init__(parent)
         self.result = ''
-        self.host = host
+        self.selected_connection = selected_connection
         self.command = ''
 
     def run(self):
-        self.command = ["nmap -oG - -sP -PA22 {0} | awk '/Status: Up/{{print $0}}'".format(self.host)]
+        logging.debug('Validating connection for {0}'.format(self.selected_connection.ip))
+        self.command = ["nmap -oG - -sP -PA22 {0} | awk '/Status: Up/{{print $0}}'".format(self.selected_connection.ip)]
 
         self.result = subprocess.Popen(
             self.command,
@@ -118,7 +120,12 @@ def run_remote_command(command, ip, username, password, use_key_file, sudo_passw
         command.append('\n')
         process_.stdin.write(' '.join(command).encode())
         process_.stdin.flush()
-        return process_.stdout.readline().decode('utf-8')
+        # line = process_.communicate(' '.join(command).encode())[0]
+        # process_.wait()
+        line = process_.stdout.readline()
+        return line
     else:
         return subprocess.Popen(command, shell=False if len(command) > 1 else True, stdout=subprocess.PIPE,
                                 stderr=subprocess.DEVNULL, stdin=subprocess.PIPE, bufsize=1)
+
+
