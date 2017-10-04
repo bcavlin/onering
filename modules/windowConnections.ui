@@ -59,7 +59,7 @@
                <item>
                 <widget class="QLabel" name="filterLabel">
                  <property name="text">
-                  <string>Expression</string>
+                  <string>Search string:</string>
                  </property>
                 </widget>
                </item>
@@ -86,9 +86,9 @@
                 </widget>
                </item>
                <item>
-                <widget class="QPushButton" name="pushButton_filter">
+                <widget class="QPushButton" name="pushButton_clear">
                  <property name="text">
-                  <string>Filter</string>
+                  <string>Clear</string>
                  </property>
                 </widget>
                </item>
@@ -191,7 +191,7 @@
   <tabstop>pushButton_start_netstat</tabstop>
   <tabstop>checkBox_numeric</tabstop>
   <tabstop>filterLineEdit</tabstop>
-  <tabstop>pushButton_filter</tabstop>
+  <tabstop>pushButton_clear</tabstop>
   <tabstop>tableView_netstat</tabstop>
   <tabstop>tabWidget</tabstop>
  </tabstops>

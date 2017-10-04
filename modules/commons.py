@@ -105,8 +105,8 @@ def run_remote_command(command, ip, username, password, use_key_file, sudo_passw
     :return:
     """
     if sudo_password and use_sudo:
-        base_command = "echo {0} | sudo -S " + command.strip()
-        base_command = base_command.format(sudo_password)
+        base_command = "echo {0} | sudo -S ".format(sudo_password)
+        base_command = base_command + command.strip()
     else:
         base_command = command.strip()
 
@@ -127,5 +127,3 @@ def run_remote_command(command, ip, username, password, use_key_file, sudo_passw
     else:
         return subprocess.Popen(command, shell=False if len(command) > 1 else True, stdout=subprocess.PIPE,
                                 stderr=subprocess.DEVNULL, stdin=subprocess.PIPE, bufsize=1)
-
-

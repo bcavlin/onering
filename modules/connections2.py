@@ -4,7 +4,7 @@ import re
 import time
 
 from PyQt4 import QtGui, QtCore
-from PyQt4.QtCore import Qt, QThread, SIGNAL
+from PyQt4.QtCore import Qt, QThread, SIGNAL, pyqtSlot
 from PyQt4.QtGui import QMainWindow, QStandardItemModel, QStandardItem
 
 from modules.abstr import Abstr
@@ -35,7 +35,8 @@ class WindowConnections(QMainWindow, Ui_MainWindow_connections, Abstr):
         self.thread_call_ns = NotImplemented
         self.pushButton_start_netstat.setText('Start')
         self.pushButton_start_netstat.clicked.connect(self.execute_command)
-        self.pushButton_filter.clicked.connect(self.update_filter)
+        self.pushButton_clear.clicked.connect(self.clear_filter)
+        self.filterLineEdit.textChanged.connect(self.update_filter)
 
     def setup_ns_table_view(self, table):
         """
@@ -68,9 +69,13 @@ class WindowConnections(QMainWindow, Ui_MainWindow_connections, Abstr):
         header = table.horizontalHeader()
         header.setDefaultAlignment(Qt.AlignHCenter)
 
-    def update_filter(self):
+    def clear_filter(self):
+        self.filterLineEdit.setText('')
+
+    @pyqtSlot(str)
+    def update_filter(self, text):
         proxy = self.tableView_netstat.model()  # type: CustomSortFilterProxyModel
-        proxy.setFilterString(self.filterLineEdit.text())
+        proxy.setFilterString(text)
 
     def stop_thread_ns(self):
         if self.thread_call_ns != NotImplemented and self.thread_call_ns.isRunning():
@@ -110,7 +115,7 @@ class WindowConnections(QMainWindow, Ui_MainWindow_connections, Abstr):
         :param QtGui.QTableView table:
         :return:
         """
-        model = table.model()
+        model = table.model().sourceModel()
         data = []
         for row in range(model.rowCount()):
             data.append([])
@@ -346,7 +351,7 @@ class DialogConnectionsThread(QThread):
         return parsed
 
     def get_application(self, pid, process_shell):
-        command = 'readlink /proc/{0}/exe'
+        command = "readlink /proc/{0}/exe | awk '{{ print }} END {{ if (!NR) print \"n/a or sudo required\" }}'"
         line = run_remote_command(command.format(pid),
                                   self.parent().selected_connection.ip,
                                   self.parent().selected_connection.username,

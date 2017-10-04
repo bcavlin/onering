@@ -16,7 +16,6 @@ from modules.password import DialogPassword
 
 class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
     def __init__(self):
-        # super(self.__class__, self).__init__()
         QMainWindow.__init__(self)
         self.setupUi(self)
         self.connections = []
