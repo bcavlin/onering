@@ -3,7 +3,7 @@ import pickle
 import random
 import sys
 
-from PyQt4 import QtGui
+from PyQt4 import QtGui, QtCore
 from PyQt4.QtGui import QMainWindow, QSystemTrayIcon, QIcon, QMenu, QApplication
 from screeninfo import get_monitors
 
@@ -16,7 +16,7 @@ from modules.password import DialogPassword
 
 class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
     def __init__(self):
-        QMainWindow.__init__(self)
+        QMainWindow.__init__(self, flags=QtCore.Qt.Window)
         self.setupUi(self)
         self.connections = []
         self.tray = QSystemTrayIcon(self)
@@ -52,6 +52,9 @@ class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
 
     def close_data(self):
         logging.debug('close_data')
+        for w in self.windows_list:  # type: QMainWindow
+            w.close()
+
         for connection in self.connections:
             if not connection.store_password:
                 connection.password = ''
@@ -91,6 +94,7 @@ class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
                 window_connection.move(random.randint(100, 500), random.randint(100, 300))
                 self.windows_list.append(window_connection)  # save window so it is not garbage collected
                 window_connection.show()
+                self.remove_window()
             else:
                 QtGui.QMessageBox.warning(self.parent(), "Requirements warning",
                                           "Required: sudo password, netstat, readlink, sha1sum",
@@ -99,6 +103,12 @@ class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
             QtGui.QMessageBox.warning(self.parent(), "Connection warning",
                                       "We cannot establish connection to {0}".format(self.selected_connection.ip),
                                       QtGui.QMessageBox.Ok)
+
+    def remove_window(self):
+        for w in self.windows_list:
+            if not w.isVisible():
+                logging.debug('Removing > ' + w.windowTitle())
+                self.windows_list.remove(w)
 
     def show_firewall_dialog(self):
         thread_call = ValidateConnectionThread(self, self.selected_connection)

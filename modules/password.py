@@ -1,3 +1,4 @@
+import datetime
 import sip
 
 import time
@@ -18,8 +19,8 @@ class DialogPassword(QWidget):
         # create ui
         self.dialog.ui.setupUi(self.dialog)
         # setup what buttons do
-        self.dialog.ui.buttonBox.button(QDialogButtonBox.Ok).clicked.connect(self.clicked_ok)
-        self.dialog.ui.buttonBox.button(QDialogButtonBox.Cancel).clicked.connect(self.clicked_cancel)
+        # self.dialog.ui.buttonBox.button(QDialogButtonBox.Ok).clicked.connect(self.clicked_ok)
+        # self.dialog.ui.buttonBox.button(QDialogButtonBox.Cancel).clicked.connect(self.clicked_cancel)
         # setup signal for the item change in combobox
         self.connect(self.dialog.ui.previousConnectionsComboBox, QtCore.SIGNAL("currentIndexChanged(int)"),
                      self.change_selection)
@@ -91,13 +92,13 @@ class DialogPassword(QWidget):
         self.change_selection()
 
     def add_message(self, message):
-        self.dialog.ui.listWidget_messages.addItem(QListWidgetItem(message))
+        self.dialog.ui.listWidget_messages.insertItem(0, QListWidgetItem(datetime.datetime.now().isoformat() + ' > ' + message))
 
     def use_key_file(self):
         self.dialog.ui.passwordLineEdit.setEnabled(not self.dialog.ui.useKeyFileCheckBox.isChecked())
 
     def change_selection(self):
-        self.dialog.ui.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
+        # self.dialog.ui.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
 
         index = self.dialog.ui.previousConnectionsComboBox.currentIndex()
         data = self.dialog.ui.previousConnectionsComboBox.itemData(index, QtCore.Qt.UserRole)
@@ -114,7 +115,7 @@ class DialogPassword(QWidget):
                 self.dialog.ui.sudoPasswordLineEdit.setText(self.parent().current_selection.sudo_password)
                 self.dialog.ui.rememberPasswordsCheckBox.setChecked(self.parent().current_selection.store_password)
                 self.dialog.ui.useKeyFileCheckBox.setChecked(self.parent().current_selection.use_key_file)
-                self.add_message(data.ip + ' is up')
-                self.dialog.ui.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
+                self.add_message(data.ip + ' is [up]')
+                # self.dialog.ui.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
             else:
-                self.add_message(data.ip + ' is down')
+                self.add_message(data.ip + ' is [down]')

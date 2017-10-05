@@ -26,7 +26,7 @@ class WindowConnections(QMainWindow, Ui_MainWindow_connections, Abstr):
     COLUMN_NS_LAST = 9
 
     def __init__(self, parent=None, selected_connection=None):
-        QMainWindow.__init__(self)
+        QMainWindow.__init__(self, flags=QtCore.Qt.Window)
         self.setupUi(self)
         self.selected_connection = selected_connection
         self.resize(1200, self.height())
