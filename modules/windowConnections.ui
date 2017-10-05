@@ -81,7 +81,7 @@
                   <bool>false</bool>
                  </property>
                  <property name="placeholderText">
-                  <string>Filter text (all columns are searched)</string>
+                  <string>Filter text (all columns ; as separator)</string>
                  </property>
                 </widget>
                </item>

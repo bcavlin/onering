@@ -1,6 +1,9 @@
 import base64
+import fcntl
 import getpass
 import logging
+import os
+import select
 import socket
 import subprocess
 import uuid
@@ -92,19 +95,22 @@ class Connection:
         return self.username + '@' + self.ip
 
 
-def run_remote_command(command, ip, username, password, use_key_file, sudo_password, use_sudo=True, process_=None):
+def run_remote_command(command, ip, username, password, use_key_file, sudo_password, use_sudo_=True, process_=None,
+                       blocking_=False):
     """
+    :param use_sudo_:
+    :param blocking_:   This parameter is used to differentiate between continuous output in loop, where we need non blocking read
+                        and a read where we expect immediate and full response (full response needs something written or it will block)
     :param command:
     :param ip:
     :param username:
     :param password:
     :param use_key_file:
     :param sudo_password:
-    :param use_sudo:
     :param subprocess.Popen process_:
     :return:
     """
-    if sudo_password and use_sudo:
+    if sudo_password and use_sudo_:
         base_command = "echo {0} | sudo -S ".format(sudo_password)
         base_command = base_command + command.strip()
     else:
@@ -120,10 +126,17 @@ def run_remote_command(command, ip, username, password, use_key_file, sudo_passw
         command.append('\n')
         process_.stdin.write(' '.join(command).encode())
         process_.stdin.flush()
-        # line = process_.communicate(' '.join(command).encode())[0]
-        # process_.wait()
-        line = process_.stdout.readline()
-        return line
+        if not blocking_:
+            output = process_.stdout.read()  # do not need response, but some may be missed
+        else:
+            output = process_.stdout.readline() if select.select([process_.stdout], [], [])[
+                0] else None  # need response, cannot be blank
+        return output.decode('utf-8') if output else None
     else:
-        return subprocess.Popen(command, shell=False if len(command) > 1 else True, stdout=subprocess.PIPE,
+        proc = subprocess.Popen(command, shell=False if len(command) > 1 else True, stdout=subprocess.PIPE,
                                 stderr=subprocess.DEVNULL, stdin=subprocess.PIPE, bufsize=1)
+        if not blocking_:
+            fd = proc.stdout.fileno()
+            fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+            fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+        return proc

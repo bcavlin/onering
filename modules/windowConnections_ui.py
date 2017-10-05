@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file './modules/windowConnections.ui'
 #
-# Created by: PyQt4 UI code generator 4.11.4
+# Created by: PyQt4 UI code generator 4.12.1
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -44,6 +44,7 @@ class Ui_MainWindow_connections(object):
         self.tab_ns = QtGui.QWidget()
         self.tab_ns.setObjectName(_fromUtf8("tab_ns"))
         self.horizontalLayout_3 = QtGui.QHBoxLayout(self.tab_ns)
+        self.horizontalLayout_3.setMargin(0)
         self.horizontalLayout_3.setObjectName(_fromUtf8("horizontalLayout_3"))
         self.horizontalLayout = QtGui.QHBoxLayout()
         self.horizontalLayout.setObjectName(_fromUtf8("horizontalLayout"))
@@ -119,7 +120,7 @@ class Ui_MainWindow_connections(object):
         MainWindow_connections.setWindowTitle(_translate("MainWindow_connections", "Connections", None))
         self.groupBox.setTitle(_translate("MainWindow_connections", "List", None))
         self.filterLabel.setText(_translate("MainWindow_connections", "Search string:", None))
-        self.filterLineEdit.setPlaceholderText(_translate("MainWindow_connections", "Filter text (all columns are searched)", None))
+        self.filterLineEdit.setPlaceholderText(_translate("MainWindow_connections", "Filter text (all columns ; as separator)", None))
         self.pushButton_clear.setText(_translate("MainWindow_connections", "Clear", None))
         self.groupBox_2.setTitle(_translate("MainWindow_connections", "Options", None))
         self.checkBox_numeric.setText(_translate("MainWindow_connections", "Numeric", None))

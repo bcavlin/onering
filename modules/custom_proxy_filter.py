@@ -26,11 +26,15 @@ class CustomSortFilterProxyModel(QtGui.QSortFilterProxyModel):
             return False
 
         if self.filterString != '':
-            for column in range(model.columnCount()):
-                index = model.index(row_num, column)
-                result = self.filterString in str(model.data(index)).lower()
-                if result:
-                    return True
-            return False
+            filters_ = [x.strip() for x in self.filterString.split(";")]
+            found = [False] * len(filters_)
+            for idx, filter_ in enumerate(filters_):
+                for column in range(model.columnCount()):
+                    index = model.index(row_num, column)
+                    value = str(model.data(index)).lower()
+                    if filter_ in value:
+                        found[idx] = True
+
+            return all(found)
         else:
             return True

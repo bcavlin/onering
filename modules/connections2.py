@@ -33,6 +33,7 @@ class WindowConnections(QMainWindow, Ui_MainWindow_connections, Abstr):
         self.setup_ns_table_view(self.tableView_netstat)
         self.thread_call_validate = NotImplemented
         self.thread_call_ns = NotImplemented
+        self.pushButton_start_netstat.setStyleSheet("background-color: green; color: white")
         self.pushButton_start_netstat.setText('Start')
         self.pushButton_start_netstat.clicked.connect(self.execute_command)
         self.pushButton_clear.clicked.connect(self.clear_filter)
@@ -80,6 +81,8 @@ class WindowConnections(QMainWindow, Ui_MainWindow_connections, Abstr):
     def stop_thread_ns(self):
         if self.thread_call_ns != NotImplemented and self.thread_call_ns.isRunning():
             self.pushButton_start_netstat.setText('Start')
+            self.pushButton_start_netstat.setStyleSheet("background-color: green; color: white")
+            self.filterLineEdit.setText('')
             self.checkBox_numeric.setEnabled(True)
             self.thread_call_ns.terminate_flag = True
             self.thread_call_ns.wait(2)
@@ -91,15 +94,13 @@ class WindowConnections(QMainWindow, Ui_MainWindow_connections, Abstr):
     def execute_command(self):
         if self.pushButton_start_netstat.text() == 'Start':
             self.pushButton_start_netstat.setText('Stop')
+            self.pushButton_start_netstat.setStyleSheet("background-color: red; color: white")
             self.checkBox_numeric.setEnabled(False)
-
             self.tableView_netstat.model().reset()
-
             self.thread_call_ns = DialogConnectionsThread(self, 'execute netstat')
             self.connect(self.thread_call_ns, SIGNAL("update_netstat"), self.update_netstat)
             self.thread_call_ns.gather_data = True
             self.thread_call_ns.start()
-
         else:
             self.thread_call_ns.gather_data = False
             self.stop_thread_ns()
@@ -233,6 +234,9 @@ class WindowConnections(QMainWindow, Ui_MainWindow_connections, Abstr):
         elif message[WindowConnections.COLUMN_NS_STATE] == 'LISTEN':
             item.setBackground(QtGui.QColor('blue'))
             item.setForeground(QtGui.QColor('white'))
+        elif message[WindowConnections.COLUMN_NS_STATE] == 'TIME_WAIT':
+            item.setBackground(QtGui.QColor('orange'))
+            item.setForeground(QtGui.QColor('white'))
         else:
             item.setBackground(QtGui.QColor('white'))
 
@@ -260,7 +264,8 @@ class DialogConnectionsThread(QThread):
                                      self.parent().selected_connection.password,
                                      self.parent().selected_connection.use_key_file,
                                      self.parent().selected_connection.sudo_password,
-                                     use_sudo=False)
+                                     use_sudo_=False,
+                                     blocking_=True)
 
         result = process.stdout.read().decode('utf-8').strip()
 
@@ -273,17 +278,17 @@ class DialogConnectionsThread(QThread):
 
     def execute_command(self):
         if self.parent().checkBox_numeric.isChecked():
-            command = 'netstat -antupc'
+            command = 'netstat -antup'
         else:
-            command = 'netstat -atupc'
+            command = 'netstat -atup'
 
-        process = run_remote_command(command,
-                                     self.parent().selected_connection.ip,
-                                     self.parent().selected_connection.username,
-                                     self.parent().selected_connection.password,
-                                     self.parent().selected_connection.use_key_file,
-                                     self.parent().selected_connection.sudo_password,
-                                     use_sudo=True)
+        process_netstat = run_remote_command('/bin/sh',
+                                             self.parent().selected_connection.ip,
+                                             self.parent().selected_connection.username,
+                                             self.parent().selected_connection.password,
+                                             self.parent().selected_connection.use_key_file,
+                                             self.parent().selected_connection.sudo_password,
+                                             use_sudo_=False)
 
         process_shell = run_remote_command('/bin/sh',
                                            self.parent().selected_connection.ip,
@@ -291,63 +296,66 @@ class DialogConnectionsThread(QThread):
                                            self.parent().selected_connection.password,
                                            self.parent().selected_connection.use_key_file,
                                            self.parent().selected_connection.sudo_password,
-                                           use_sudo=False)
+                                           use_sudo_=False)
 
-        parsed = []
         while not self.terminate_flag:
-            output = process.stdout.readline().decode('utf-8')
-            if output == '' and process.poll() is not None:
-                break
-            if output and self.gather_data:
-                if output.startswith('Active Internet connections') and parsed:
+            output = run_remote_command(command,
+                                        self.parent().selected_connection.ip,
+                                        self.parent().selected_connection.username,
+                                        self.parent().selected_connection.password,
+                                        self.parent().selected_connection.use_key_file,
+                                        self.parent().selected_connection.sudo_password,
+                                        use_sudo_=True,
+                                        process_=process_netstat)
+
+            if output:
+                lines = output.split("\n")
+                # lines = output.decode('utf-8').splitlines()
+                parsed = []
+                for line in lines:
+                    result = self.split_netstat_message(line.strip(), process_shell)
+                    if result:
+                        parsed.append(result)
+                if parsed:
                     self.emit(SIGNAL('update_netstat'), parsed)
-                    parsed = []
-                    time.sleep(1.9)
-                else:
-                    line = self.split_netstat_message(output.strip(), process_shell)
-                    if line:
-                        parsed.append(line)
+
+            time.sleep(1.9)
 
         process_shell.kill()
-        process.kill()
-        print('netstat process completed')
+        process_netstat.kill()
+        print('netstat process_netstat completed')
 
-    def split_netstat_message(self, message, process_shell):
+    def split_netstat_message(self, line, process_shell):
         parsed = []
-        lines = message.splitlines()
+        match = re.match(
+            r'^(tcp6|udp6|tcp|udp)\s*\d+\s*\d+\s*([\w*-:\[\]]*:[\w*]*)\s*([\w*-:\[\]]*:[\w*]*)\s*([CLTEF]\w*|\s)\s*([-|\d/]*).*$',
+            line.strip())
+        if match:
+            # order
+            # protocol, local addr, local port, remote addr, remote port, state, pid, appl, sha1, last
+            parsed.append(match.group(1).strip())  # protocol
 
-        for line in lines:
-            match = re.match(
-                r'^(tcp6|udp6|tcp|udp)\s*\d+\s*\d+\s*([\w*-:\[\]]*:[\w*]*)\s*([\w*-:\[\]]*:[\w*]*)\s*([CLTE]\w*|\s)\s*(\d*)/.*$',
-                line)
-            if match:
-                # order
-                # protocol, local addr, local port, remote addr, remote port, state, pid, appl, sha1, last
-                parsed.append(match.group(1).strip())  # protocol
+            match2 = re.match(r'([\w*-:\[\]]*):([\w*]*)', match.group(2).strip())
+            parsed.append(match2.group(1))  # ip from address
+            parsed.append(match2.group(2))  # ip from port
 
-                match2 = re.match(r'([\w*-:\[\]]*):([\w*]*)', match.group(2).strip())
-                parsed.append(match2.group(1))  # ip from address
-                parsed.append(match2.group(2))  # ip from port
+            match3 = re.match(r'([\w*-:\[\]]*):([\w*]*)', match.group(3).strip())
+            parsed.append(match3.group(1))  # ip remote address
+            parsed.append(match3.group(2))  # ip remote port
 
-                match3 = re.match(r'([\w*-:\[\]]*):([\w*]*)', match.group(3).strip())
-                parsed.append(match3.group(1))  # ip remote address
-                parsed.append(match3.group(2))  # ip remote port
+            parsed.append(match.group(4).strip())  # state
 
-                parsed.append(match.group(4).strip())  # state
+            pid_ = re.sub('/', '', match.group(5).strip())
+            parsed.append(pid_)  # pid
 
-                pid_ = match.group(5).strip()
-                parsed.append(pid_)  # pid
+            if '-' != pid_ and not self.proc_exe.get(pid_) and pid_:
+                logging.debug('Adding PID to the list: ' + pid_)
+                self.proc_exe[pid_] = self.get_application(pid_, process_shell)  # add item
+                # self.proc_sha1[pid_] = self.get_sha1(self.proc_exe[pid_], process_shell)  # add item
 
-                if not self.proc_exe.get(pid_) and pid_:
-                    logging.debug('Adding PID to the list: ' + pid_)
-                    self.proc_exe[pid_] = self.get_application(pid_, process_shell)  # add item
-                    # self.proc_sha1[pid_] = self.get_sha1(self.proc_exe[pid_], process_shell)  # add item
-
-                parsed.append(self.proc_exe.get(pid_))  # appl
-                # parsed.append(self.proc_sha1.get(pid_))  # sha1
-                parsed.append('')  # sha1
-                parsed.append(datetime.datetime.now().strftime('%H:%M:%S'))  # last
-
+            parsed.append(self.proc_exe.get(pid_))  # appl
+            parsed.append(self.proc_sha1.get(pid_))  # sha1
+            parsed.append(datetime.datetime.now().strftime('%H:%M:%S'))  # last
         return parsed
 
     def get_application(self, pid, process_shell):
@@ -358,10 +366,11 @@ class DialogConnectionsThread(QThread):
                                   self.parent().selected_connection.password,
                                   self.parent().selected_connection.use_key_file,
                                   self.parent().selected_connection.sudo_password,
-                                  use_sudo=True,
-                                  process_=process_shell)
+                                  use_sudo_=True,
+                                  process_=process_shell,
+                                  blocking_=True)
         if line:
-            return line.decode('utf-8').strip()
+            return line.strip()
         else:
             return None
 
@@ -373,8 +382,9 @@ class DialogConnectionsThread(QThread):
                                   self.parent().selected_connection.password,
                                   self.parent().selected_connection.use_key_file,
                                   self.parent().selected_connection.sudo_password,
-                                  use_sudo=True,
-                                  process_=process_shell)
+                                  use_sudo_=True,
+                                  process_=process_shell,
+                                  blocking_=True)
         if line:
             return line.decode('utf-8').strip()
         else:
