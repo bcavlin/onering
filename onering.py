@@ -10,8 +10,7 @@ from screeninfo import get_monitors
 import oneringui_ui
 from modules.commons import Connection, ValidateConnectionThread
 from modules.connections2 import WindowConnections
-from modules.firewall import DialogFirewall
-from modules.password import DialogPassword
+from modules.password2 import DialogPassword
 
 
 class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
@@ -23,13 +22,13 @@ class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
         self.dialog_password = DialogPassword(self)
         self.setup_connections()
         self.selected_connection = self.connections[0]
-        self.dialog_firewall = DialogFirewall(self)
+        # self.dialog_firewall = DialogFirewall(self)
         self.windows_list = []
 
         self.setup_icon()
         self.setup_menu()
 
-        self.pushButton_Firewall.clicked.connect(self.show_firewall_dialog)
+        # self.pushButton_Firewall.clicked.connect(self.show_firewall_dialog)
         self.pushButton_sudo.clicked.connect(self.show_password_dialog)
         self.pushButton_connections.clicked.connect(self.show_connections_dialog)
         logging.debug('Created main application')
@@ -110,30 +109,30 @@ class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
                 logging.debug('Removing > ' + w.windowTitle())
                 self.windows_list.remove(w)
 
-    def show_firewall_dialog(self):
-        thread_call = ValidateConnectionThread(self, self.selected_connection)
-        thread_call.start()
-        thread_call.wait()
-
-        if thread_call.result:
-            if len(self.selected_connection.sudo_password) > 0 and self.dialog_firewall.validate_command():
-                self.dialog_firewall.dialog.setWindowTitle(
-                    'Firewall (UFW): [' + self.selected_connection.get_title() + ']')
-                self.dialog_firewall.dialog.ui.tableWidget.setRowCount(0)
-                self.dialog_firewall.dialog.move(random.randint(100, 800), random.randint(100, 500))
-                self.dialog_firewall.dialog.show()
-            else:
-                QtGui.QMessageBox.warning(self.parent(), "Password warning",
-                                          "sudo password is required for this operation",
-                                          QtGui.QMessageBox.Ok)
-        else:
-            QtGui.QMessageBox.warning(self.parent(), "Connection warning",
-                                      "We cannot establish conection to {0}".format(self.current_selection.ip),
-                                      QtGui.QMessageBox.Ok)
+    # def show_firewall_dialog(self):
+    #     thread_call = ValidateConnectionThread(self, self.selected_connection)
+    #     thread_call.start()
+    #     thread_call.wait()
+    #
+    #     if thread_call.result:
+    #         if len(self.selected_connection.sudo_password) > 0 and self.dialog_firewall.validate_command():
+    #             self.dialog_firewall.dialog.setWindowTitle(
+    #                 'Firewall (UFW): [' + self.selected_connection.get_title() + ']')
+    #             self.dialog_firewall.dialog.ui.tableWidget.setRowCount(0)
+    #             self.dialog_firewall.dialog.move(random.randint(100, 800), random.randint(100, 500))
+    #             self.dialog_firewall.dialog.show()
+    #         else:
+    #             QtGui.QMessageBox.warning(self.parent(), "Password warning",
+    #                                       "sudo password is required for this operation",
+    #                                       QtGui.QMessageBox.Ok)
+    #     else:
+    #         QtGui.QMessageBox.warning(self.parent(), "Connection warning",
+    #                                   "We cannot establish conection to {0}".format(self.current_selection.ip),
+    #                                   QtGui.QMessageBox.Ok)
 
     def show_password_dialog(self):
-        self.dialog_password.dialog.move(random.randint(100, 800), random.randint(100, 500))
-        self.dialog_password.dialog.exec_()
+        self.dialog_password.move(random.randint(100, 800), random.randint(100, 500))
+        self.dialog_password.exec_()
         self.setWindowTitle('OneRing [' + self.selected_connection.get_title() + ']')
 
     def show_application(self):

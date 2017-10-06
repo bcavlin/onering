@@ -8,6 +8,7 @@ import socket
 import subprocess
 import uuid
 
+import paramiko as paramiko
 from Crypto.Cipher import AES
 from PyQt4.QtCore import QThread
 
@@ -65,19 +66,22 @@ class ValidateConnectionThread(QThread):
 
     def __init__(self, parent, selected_connection):
         super().__init__(parent)
-        self.result = ''
+        self.result = None
         self.selected_connection = selected_connection
         self.command = ''
 
     def run(self):
-        logging.debug('Validating connection for {0}'.format(self.selected_connection.ip))
-        self.command = ["nmap -oG - -sP -PA22 {0} | awk '/Status: Up/{{print $0}}'".format(self.selected_connection.ip)]
-
-        self.result = subprocess.Popen(
-            self.command,
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL).stdout.read().decode('utf-8').strip()
+        if self.selected_connection.ip in ('127.0.0.1', '::1'):
+            self.result = True
+        else:
+            logging.debug('Validating connection for {0}'.format(self.selected_connection.ip))
+            self.command = [
+                "nmap -oG - -sP -PA22 {0} | awk '/Status: Up/{{print $0}}'".format(self.selected_connection.ip)]
+            self.result = subprocess.Popen(
+                self.command,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL).stdout.read().decode('utf-8').strip()
 
 
 @auto_str
@@ -95,6 +99,10 @@ class Connection:
         return self.username + '@' + self.ip
 
 
+def is_local_ip(ip):
+    return True if ip in ('127.0.0.1', '::1') else False
+
+
 def run_remote_command(command, ip, username, password, use_key_file, sudo_password, use_sudo_=True, process_=None,
                        blocking_=False):
     """
@@ -107,7 +115,7 @@ def run_remote_command(command, ip, username, password, use_key_file, sudo_passw
     :param password:
     :param use_key_file:
     :param sudo_password:
-    :param subprocess.Popen process_:
+    :param process_:
     :return:
     """
     if sudo_password and use_sudo_:
@@ -116,27 +124,36 @@ def run_remote_command(command, ip, username, password, use_key_file, sudo_passw
     else:
         base_command = command.strip()
 
-    if ip.strip() == '127.0.0.1':
-        command = [base_command]
-    else:
-        command = use_sshpass(use_key_file, password) + ["ssh", "{0}@{1}".format(username, ip),
-                                                         base_command]
+    command = [base_command]
 
     if process_:
-        command.append('\n')
-        process_.stdin.write(' '.join(command).encode())
-        process_.stdin.flush()
-        if not blocking_:
-            output = process_.stdout.read()  # do not need response, but some may be missed
+        if is_local_ip(ip):
+            command.append('\n')
+            process_.stdin.write(' '.join(command).encode())
+            process_.stdin.flush()
+            if not blocking_:
+                output = process_.stdout.read()  # do not need response, but some may be missed
+            else:
+                output = process_.stdout.readline() if select.select([process_.stdout], [], [])[
+                    0] else None  # need response, cannot be blank
+                # print(str(output))
         else:
-            output = process_.stdout.readline() if select.select([process_.stdout], [], [])[
-                0] else None  # need response, cannot be blank
+            stdin, stdout, stderr = process_.exec_command(' '.join(command).encode())
+            output = stdout.read()
+
         return output.decode('utf-8') if output else None
     else:
-        proc = subprocess.Popen(command, shell=False if len(command) > 1 else True, stdout=subprocess.PIPE,
-                                stderr=subprocess.DEVNULL, stdin=subprocess.PIPE, bufsize=1)
-        if not blocking_:
-            fd = proc.stdout.fileno()
-            fl = fcntl.fcntl(fd, fcntl.F_GETFL)
-            fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
-        return proc
+        if is_local_ip(ip):
+            proc = subprocess.Popen(command, shell=False if len(command) > 1 else True, stdout=subprocess.PIPE,
+                                    stderr=subprocess.DEVNULL, stdin=subprocess.PIPE, bufsize=1)
+            if not blocking_:
+                fd = proc.stdout.fileno()
+                fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+                fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+            return proc
+        else:
+            client = paramiko.SSHClient()
+            client.load_system_host_keys()
+            client.set_missing_host_key_policy(paramiko.WarningPolicy)
+            client.connect(ip, port=22, username=username, password=password)
+            return client

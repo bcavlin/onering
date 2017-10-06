@@ -8,7 +8,7 @@ from PyQt4.QtCore import Qt, QThread, SIGNAL, pyqtSlot
 from PyQt4.QtGui import QMainWindow, QStandardItemModel, QStandardItem
 
 from modules.abstr import Abstr
-from modules.commons import run_remote_command
+from modules.commons import run_remote_command, is_local_ip
 from modules.custom_proxy_filter import CustomSortFilterProxyModel
 from modules.windowConnections_ui import Ui_MainWindow_connections
 
@@ -267,7 +267,13 @@ class DialogConnectionsThread(QThread):
                                      use_sudo_=False,
                                      blocking_=True)
 
-        result = process.stdout.read().decode('utf-8').strip()
+        if is_local_ip(self.parent().selected_connection.ip):
+            result = process.stdout.read().decode('utf-8').strip()
+            process.kill()
+        else:
+            stdin, stdout, stderr = process.exec_command("which netstat readlink sha1sum | awk 'END{print NR}'")
+            result = stdout.read().decode('utf-8').strip()
+            process.close()
 
         if result == '3':
             logging.debug('Validation successful for netstat readlink sha1sum')
@@ -310,7 +316,6 @@ class DialogConnectionsThread(QThread):
 
             if output:
                 lines = output.split("\n")
-                # lines = output.decode('utf-8').splitlines()
                 parsed = []
                 for line in lines:
                     result = self.split_netstat_message(line.strip(), process_shell)
@@ -321,8 +326,12 @@ class DialogConnectionsThread(QThread):
 
             time.sleep(1.9)
 
-        process_shell.kill()
-        process_netstat.kill()
+        if is_local_ip(self.parent().selected_connection.ip):
+            process_shell.kill()
+            process_netstat.kill()
+        else:
+            process_shell.close()
+            process_netstat.close()
         print('netstat process_netstat completed')
 
     def split_netstat_message(self, line, process_shell):
@@ -351,7 +360,8 @@ class DialogConnectionsThread(QThread):
             if '-' != pid_ and not self.proc_exe.get(pid_) and pid_:
                 logging.debug('Adding PID to the list: ' + pid_)
                 self.proc_exe[pid_] = self.get_application(pid_, process_shell)  # add item
-                # self.proc_sha1[pid_] = self.get_sha1(self.proc_exe[pid_], process_shell)  # add item
+                if self.proc_exe[pid_]:
+                    self.proc_sha1[pid_] = self.get_sha1(self.proc_exe[pid_], process_shell)  # add item
 
             parsed.append(self.proc_exe.get(pid_))  # appl
             parsed.append(self.proc_sha1.get(pid_))  # sha1
@@ -386,6 +396,6 @@ class DialogConnectionsThread(QThread):
                                   process_=process_shell,
                                   blocking_=True)
         if line:
-            return line.decode('utf-8').strip()
+            return line.strip()
         else:
             return None
