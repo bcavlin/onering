@@ -3,7 +3,6 @@ import fcntl
 import getpass
 import logging
 import os
-import select
 import socket
 import subprocess
 import uuid
@@ -104,8 +103,9 @@ def is_local_ip(ip):
 
 
 def run_remote_command(command, ip, username, password, use_key_file, sudo_password, use_sudo_=True, process_=None,
-                       blocking_=False):
+                       blocking_=False, expect_results_=1):
     """
+    :param expect_results_:
     :param use_sudo_:
     :param blocking_:   This parameter is used to differentiate between continuous output in loop, where we need non blocking read
                         and a read where we expect immediate and full response (full response needs something written or it will block)
@@ -127,21 +127,31 @@ def run_remote_command(command, ip, username, password, use_key_file, sudo_passw
     command = [base_command]
 
     if process_:
+        output = ''
         if is_local_ip(ip):
             command.append('\n')
             process_.stdin.write(' '.join(command).encode())
             process_.stdin.flush()
-            if not blocking_:
-                output = process_.stdout.read()  # do not need response, but some may be missed
+            if blocking_:
+                i = 0
+                while i < expect_results_:  # need to write command to always return expected results
+                    o = process_.stdout.readline()
+                    if o:
+                        output += o.decode('utf-8')
+                    i += 1
             else:
-                output = process_.stdout.readline() if select.select([process_.stdout], [], [])[
-                    0] else None  # need response, cannot be blank
-                # print(str(output))
+                o = process_.stdout.read()
+                if o:
+                    output = o.decode('utf-8')
+
         else:
             stdin, stdout, stderr = process_.exec_command(' '.join(command).encode())
-            output = stdout.read()
+            o = stdout.read()
+            if o:
+                output = o.decode('utf-8')
 
-        return output.decode('utf-8') if output else None
+        parsed = list((x.strip() for x in output.split('\n')))
+        return parsed
     else:
         if is_local_ip(ip):
             proc = subprocess.Popen(command, shell=False if len(command) > 1 else True, stdout=subprocess.PIPE,
