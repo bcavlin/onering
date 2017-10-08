@@ -248,6 +248,7 @@ class DialogConnectionsThread(QThread):
         self.validation_result = None
         self.gather_data = True
         self.terminate_flag = False
+        self.proc_user = {}  # list of process id's and its users
         self.proc_exe = {}  # list of process id's and its exe
         self.proc_sha1 = {}  # list of process id's and its sha1
 
@@ -258,7 +259,8 @@ class DialogConnectionsThread(QThread):
             self.execute_command()
 
     def validate_command(self):
-        process = run_remote_command("which netstat readlink sha1sum | awk 'END{print NR}'",
+        command = "which netstat readlink sha1sum | awk 'END{print NR}'"
+        process = run_remote_command(command,
                                      self.parent().selected_connection.ip,
                                      self.parent().selected_connection.username,
                                      self.parent().selected_connection.password,
@@ -271,7 +273,7 @@ class DialogConnectionsThread(QThread):
             result = process.stdout.read().decode('utf-8').strip()
             process.kill()
         else:
-            stdin, stdout, stderr = process.exec_command("which netstat readlink sha1sum | awk 'END{print NR}'")
+            stdin, stdout, stderr = process.exec_command(command)
             result = stdout.read().decode('utf-8').strip()
             process.close()
 
@@ -284,9 +286,9 @@ class DialogConnectionsThread(QThread):
 
     def execute_command(self):
         if self.parent().checkBox_numeric.isChecked():
-            command = 'netstat -antup'
+            command = 'netstat -antuWp'
         else:
-            command = 'netstat -atup'
+            command = 'netstat -atuWp'
 
         process_netstat = run_remote_command('/bin/sh',
                                              self.parent().selected_connection.ip,
@@ -302,7 +304,8 @@ class DialogConnectionsThread(QThread):
                                            self.parent().selected_connection.password,
                                            self.parent().selected_connection.use_key_file,
                                            self.parent().selected_connection.sudo_password,
-                                           use_sudo_=False)
+                                           use_sudo_=False,
+                                           blocking_=True)
 
         while not self.terminate_flag:
             output = run_remote_command(command,
@@ -315,9 +318,9 @@ class DialogConnectionsThread(QThread):
                                         process_=process_netstat)
 
             if output:
-                lines = output.split("\n")
+                # lines = output.decode('utf-8').split("\n")
                 parsed = []
-                for line in lines:
+                for line in output:
                     result = self.split_netstat_message(line.strip(), process_shell)
                     if result:
                         parsed.append(result)
@@ -359,7 +362,7 @@ class DialogConnectionsThread(QThread):
 
             if '-' != pid_ and not self.proc_exe.get(pid_) and pid_:
                 logging.debug('Adding PID to the list: ' + pid_)
-                self.proc_exe[pid_] = self.get_application(pid_, process_shell)  # add item
+                self.proc_exe[pid_], self.proc_user[pid_] = self.get_application(pid_, process_shell)  # add item
                 if self.proc_exe[pid_]:
                     self.proc_sha1[pid_] = self.get_sha1(self.proc_exe[pid_], process_shell)  # add item
 
@@ -369,24 +372,26 @@ class DialogConnectionsThread(QThread):
         return parsed
 
     def get_application(self, pid, process_shell):
-        command = "readlink /proc/{0}/exe | awk '{{ print }} END {{ if (!NR) print \"n/a or sudo required\" }}'"
-        line = run_remote_command(command.format(pid),
-                                  self.parent().selected_connection.ip,
-                                  self.parent().selected_connection.username,
-                                  self.parent().selected_connection.password,
-                                  self.parent().selected_connection.use_key_file,
-                                  self.parent().selected_connection.sudo_password,
-                                  use_sudo_=True,
-                                  process_=process_shell,
-                                  blocking_=True)
-        if line:
-            return line.strip()
+        command = "readlink /proc/{0}/exe || echo n/a; ps u --pid {1} | awk '/{2}/ {{print $1}}' || echo n/a"
+        output = run_remote_command(command.format(pid, pid, pid),
+                                    self.parent().selected_connection.ip,
+                                    self.parent().selected_connection.username,
+                                    self.parent().selected_connection.password,
+                                    self.parent().selected_connection.use_key_file,
+                                    self.parent().selected_connection.sudo_password,
+                                    use_sudo_=True,
+                                    process_=process_shell,
+                                    blocking_=True,
+                                    expect_results_=2)
+
+        if output:
+            return output[0], output[1]
         else:
-            return None
+            return 'n/a', 'n/a'
 
     def get_sha1(self, application, process_shell):
         command = 'sha1sum -b {0}'
-        line = run_remote_command(command.format(application),
+        output = run_remote_command(command.format(application),
                                   self.parent().selected_connection.ip,
                                   self.parent().selected_connection.username,
                                   self.parent().selected_connection.password,
@@ -395,7 +400,7 @@ class DialogConnectionsThread(QThread):
                                   use_sudo_=True,
                                   process_=process_shell,
                                   blocking_=True)
-        if line:
-            return line.strip()
+        if output:
+            return output[0]
         else:
-            return None
+            return 'n/a'

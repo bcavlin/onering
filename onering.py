@@ -10,6 +10,7 @@ from screeninfo import get_monitors
 import oneringui_ui
 from modules.commons import Connection, ValidateConnectionThread
 from modules.connections2 import WindowConnections
+from modules.firewall2 import WindowFirewall
 from modules.password2 import DialogPassword
 
 
@@ -22,13 +23,12 @@ class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
         self.dialog_password = DialogPassword(self)
         self.setup_connections()
         self.selected_connection = self.connections[0]
-        # self.dialog_firewall = DialogFirewall(self)
         self.windows_list = []
 
         self.setup_icon()
         self.setup_menu()
 
-        # self.pushButton_Firewall.clicked.connect(self.show_firewall_dialog)
+        self.pushButton_Firewall.clicked.connect(self.show_firewall_dialog)
         self.pushButton_sudo.clicked.connect(self.show_password_dialog)
         self.pushButton_connections.clicked.connect(self.show_connections_dialog)
         logging.debug('Created main application')
@@ -87,17 +87,22 @@ class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
         thread_call.wait()
 
         if thread_call.result:
-            window_connection = WindowConnections(selected_connection=self.selected_connection)
-            if len(self.selected_connection.sudo_password) > 0 and window_connection.validate_command():
-                window_connection.setWindowTitle('Connections: [' + self.selected_connection.get_title() + ']')
-                window_connection.move(random.randint(100, 500), random.randint(100, 300))
-                self.windows_list.append(window_connection)  # save window so it is not garbage collected
-                window_connection.show()
-                self.remove_window()
-            else:
-                QtGui.QMessageBox.warning(self.parent(), "Requirements warning",
-                                          "Required: sudo password, netstat, readlink, sha1sum",
-                                          QtGui.QMessageBox.Ok)
+            found = False
+            for windows in self.windows_list:
+                if windows.selected_connection == self.selected_connection and windows.__class__ == WindowConnections.__class__:
+                    found = True
+            if not found:
+                window_connection = WindowConnections(selected_connection=self.selected_connection)
+                if len(self.selected_connection.sudo_password) > 0 and window_connection.validate_command():
+                    window_connection.setWindowTitle('Connections: [' + self.selected_connection.get_title() + ']')
+                    window_connection.move(random.randint(100, 500), random.randint(100, 300))
+                    self.windows_list.append(window_connection)  # save window so it is not garbage collected
+                    window_connection.show()
+                    self.remove_window()
+                else:
+                    QtGui.QMessageBox.warning(self.parent(), "Requirements warning",
+                                              "Required: sudo password, netstat, readlink, sha1sum",
+                                              QtGui.QMessageBox.Ok)
         else:
             QtGui.QMessageBox.warning(self.parent(), "Connection warning",
                                       "We cannot establish connection to {0}".format(self.selected_connection.ip),
@@ -109,26 +114,33 @@ class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
                 logging.debug('Removing > ' + w.windowTitle())
                 self.windows_list.remove(w)
 
-    # def show_firewall_dialog(self):
-    #     thread_call = ValidateConnectionThread(self, self.selected_connection)
-    #     thread_call.start()
-    #     thread_call.wait()
-    #
-    #     if thread_call.result:
-    #         if len(self.selected_connection.sudo_password) > 0 and self.dialog_firewall.validate_command():
-    #             self.dialog_firewall.dialog.setWindowTitle(
-    #                 'Firewall (UFW): [' + self.selected_connection.get_title() + ']')
-    #             self.dialog_firewall.dialog.ui.tableWidget.setRowCount(0)
-    #             self.dialog_firewall.dialog.move(random.randint(100, 800), random.randint(100, 500))
-    #             self.dialog_firewall.dialog.show()
-    #         else:
-    #             QtGui.QMessageBox.warning(self.parent(), "Password warning",
-    #                                       "sudo password is required for this operation",
-    #                                       QtGui.QMessageBox.Ok)
-    #     else:
-    #         QtGui.QMessageBox.warning(self.parent(), "Connection warning",
-    #                                   "We cannot establish conection to {0}".format(self.current_selection.ip),
-    #                                   QtGui.QMessageBox.Ok)
+    def show_firewall_dialog(self):
+        thread_call = ValidateConnectionThread(self, self.selected_connection)
+        thread_call.start()
+        thread_call.wait()
+
+        if thread_call.result:
+            found = False
+            for windows in self.windows_list:
+                if windows.selected_connection == self.selected_connection and windows.__class__ == WindowFirewall.__class__:
+                    found = True
+            if not found:
+                window_firewall = WindowFirewall(selected_connection=self.selected_connection)
+                if len(self.selected_connection.sudo_password) > 0 and window_firewall.validate_command():
+                    window_firewall.setWindowTitle(
+                        'Firewall (UFW): [' + self.selected_connection.get_title() + ']')
+                    window_firewall.move(random.randint(100, 800), random.randint(100, 500))
+                    self.windows_list.append(window_firewall)  # save window so it is not garbage collected
+                    window_firewall.show()
+                    self.remove_window()
+                else:
+                    QtGui.QMessageBox.warning(self.parent(), "Password warning",
+                                              "sudo password is required for this operation",
+                                              QtGui.QMessageBox.Ok)
+        else:
+            QtGui.QMessageBox.warning(self.parent(), "Connection warning",
+                                      "We cannot establish conection to {0}".format(self.current_selection.ip),
+                                      QtGui.QMessageBox.Ok)
 
     def show_password_dialog(self):
         self.dialog_password.move(random.randint(100, 800), random.randint(100, 500))
