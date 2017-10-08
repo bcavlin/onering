@@ -102,11 +102,20 @@ def is_local_ip(ip):
     return True if ip in ('127.0.0.1', '::1') else False
 
 
-def run_remote_command(command, ip, username, password, use_key_file, sudo_password, use_sudo_=True, process_=None,
+def get_full_command(command, sudo_password, use_sudo_=True):
+    if sudo_password and use_sudo_:
+        base_command = "echo {0} | sudo -S ".format(sudo_password)
+        base_command = base_command + command.strip()
+    else:
+        base_command = command.strip()
+
+    return [base_command]
+
+
+def run_remote_command(command, ip, username, password, use_key_file, process_=None,
                        blocking_=False, expect_results_=1):
     """
     :param expect_results_:
-    :param use_sudo_:
     :param blocking_:   This parameter is used to differentiate between continuous output in loop, where we need non blocking read
                         and a read where we expect immediate and full response (full response needs something written or it will block)
     :param command:
@@ -114,17 +123,9 @@ def run_remote_command(command, ip, username, password, use_key_file, sudo_passw
     :param username:
     :param password:
     :param use_key_file:
-    :param sudo_password:
     :param process_:
     :return:
     """
-    if sudo_password and use_sudo_:
-        base_command = "echo {0} | sudo -S ".format(sudo_password)
-        base_command = base_command + command.strip()
-    else:
-        base_command = command.strip()
-
-    command = [base_command]
 
     if process_:
         output = ''

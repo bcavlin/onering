@@ -6,7 +6,7 @@ from PyQt4.QtCore import Qt, QThread, SIGNAL
 from PyQt4.QtGui import QMainWindow, QStandardItemModel, QStandardItem
 
 from modules.abstr import Abstr
-from modules.commons import run_remote_command, is_local_ip
+from modules.commons import run_remote_command, is_local_ip, get_full_command
 from modules.custom_proxy_filter import CustomSortFilterProxyModel
 from modules.windowFirewall_ui import Ui_MainWindow_firewall
 
@@ -22,18 +22,13 @@ class WindowFirewall(QMainWindow, Ui_MainWindow_firewall, Abstr):
         self.setupUi(self)
         self.resize(900, self.height())
         self.selected_connection = selected_connection
-        self.setup_firewall_table_view(self.tableView_firewall)
-        self.firewall_status = False  # disabled
+        self.setup_firewall_table_view()
+        self.firewall_active = None  # disabled
         self.pushButton_refresh.clicked.connect(self.execute_command)
         self.pushButton_enabled.clicked.connect(self.enable_disable_firewall)
 
-    def setup_firewall_table_view(self, table):
-        """
-        Setup table for firewall
-        :param table:
-        :return:
-        """
-
+    def setup_firewall_table_view(self):
+        table = self.tableView_firewall
         model = QStandardItemModel(self)
         model.setHorizontalHeaderLabels(['#', 'To', 'Action', 'From'])
 
@@ -50,10 +45,16 @@ class WindowFirewall(QMainWindow, Ui_MainWindow_firewall, Abstr):
         header.setDefaultAlignment(Qt.AlignHCenter)
 
     def execute_command(self):
+        self.tableView_firewall.model().reset()
         thread_call = DialogFirewallThread(self, 'execute')
         self.connect(thread_call, SIGNAL("update_ufw"), self.update_ufw)
         thread_call.start()
-        self.pushButton_enabled.setEnabled(not self.firewall_status)
+        thread_call.wait()
+        self.pushButton_enabled.setEnabled(self.firewall_active is not None)
+        if self.firewall_active:
+            self.pushButton_enabled.setText('Disable')
+        else:
+            self.pushButton_enabled.setText('Enable')
 
     def enable_disable_firewall(self):
         thread_call = DialogFirewallThread(self, 'enable_disable')
@@ -77,7 +78,6 @@ class WindowFirewall(QMainWindow, Ui_MainWindow_firewall, Abstr):
 
     def update_ufw(self, message_array):
         model = self.tableView_firewall.model().sourceModel()  # type: QStandardItemModel
-        model.reset()
 
         for message in message_array:
             item1 = QStandardItem(message[WindowFirewall.COLUMN_NUMBER])
@@ -105,7 +105,6 @@ class DialogFirewallThread(QThread):
     def __init__(self, parent, command='validate'):
         super().__init__(parent)
         self.command = command
-        # this holds string result
         self.validation_result = None
 
     def run(self):
@@ -114,69 +113,61 @@ class DialogFirewallThread(QThread):
         elif self.command == 'execute':
             self.execute_command()
         elif self.command == 'enable_disable':
-            if self.parent().firewall_status:  # enabled
+            if self.parent().firewall_active:  # enabled
                 self.disable_firewall()
             else:
                 self.enable_firewall()
 
     def enable_firewall(self):
-        command = "ufw --force enable"
+        command = get_full_command("ufw --force enable", self.parent().selected_connection.sudo_password)
         process = run_remote_command(command,
                                      self.parent().selected_connection.ip,
                                      self.parent().selected_connection.username,
                                      self.parent().selected_connection.password,
                                      self.parent().selected_connection.use_key_file,
-                                     self.parent().selected_connection.sudo_password,
-                                     use_sudo_=True,
                                      blocking_=True)
 
         if is_local_ip(self.parent().selected_connection.ip):
             result = process.stdout.read().decode('utf-8').strip()
             process.kill()
         else:
-            stdin, stdout, stderr = process.exec_command(command)
+            stdin, stdout, stderr = process.exec_command(command[0])
             result = stdout.read().decode('utf-8').strip()
             process.close()
-
         logging.debug(command + ' result: ' + result)
 
     def disable_firewall(self):
-        command = "ufw disable"
+        command = get_full_command("ufw disable", self.parent().selected_connection.sudo_password)
         process = run_remote_command(command,
                                      self.parent().selected_connection.ip,
                                      self.parent().selected_connection.username,
                                      self.parent().selected_connection.password,
                                      self.parent().selected_connection.use_key_file,
-                                     self.parent().selected_connection.sudo_password,
-                                     use_sudo_=True,
                                      blocking_=True)
 
         if is_local_ip(self.parent().selected_connection.ip):
             result = process.stdout.read().decode('utf-8').strip()
             process.kill()
         else:
-            stdin, stdout, stderr = process.exec_command(command)
+            stdin, stdout, stderr = process.exec_command(command[0])
             result = stdout.read().decode('utf-8').strip()
             process.close()
-
         logging.debug(command + ' result: ' + result)
 
     def execute_command(self):
-        command = "ufw status numbered"
+        command = get_full_command("ufw status numbered", self.parent().selected_connection.sudo_password)
         process = run_remote_command(command,
                                      self.parent().selected_connection.ip,
                                      self.parent().selected_connection.username,
                                      self.parent().selected_connection.password,
                                      self.parent().selected_connection.use_key_file,
-                                     self.parent().selected_connection.sudo_password,
-                                     use_sudo_=True,
                                      blocking_=True)
 
         if is_local_ip(self.parent().selected_connection.ip):
             output = process.stdout.read().decode('utf-8').strip()
             process.kill()
         else:
-            stdin, stdout, stderr = process.exec_command(command)
+            stdin, stdout, stderr = process.exec_command(command[0])
             output = stdout.read().decode('utf-8').strip()
             process.close()
 
@@ -195,7 +186,7 @@ class DialogFirewallThread(QThread):
         match_status = re.match(r'^Status:\s*(.*)', line)
         if match_status:
             status = match_status.group(1).strip()
-            self.parent().firewall_status = True if status == 'active' else False
+            self.parent().firewall_active = True if status == 'active' else False
             logging.debug('Firewall status is: ' + status)
         else:
             match = re.match(r'^(\[.*\])\s*(.*)\s*(ALLOW|DENY|DROP|REJECT)\s(IN|OUT)?\s*(.*)', line)
@@ -212,21 +203,19 @@ class DialogFirewallThread(QThread):
         return parsed
 
     def validate_command(self):
-        command = "which ufw | awk 'END{{print NR}}'"
+        command = get_full_command("which ufw | awk 'END{{print NR}}'", self.parent().selected_connection.sudo_password, use_sudo_=False)
         process = run_remote_command(command,
                                      self.parent().selected_connection.ip,
                                      self.parent().selected_connection.username,
                                      self.parent().selected_connection.password,
                                      self.parent().selected_connection.use_key_file,
-                                     self.parent().selected_connection.sudo_password,
-                                     use_sudo_=True,
                                      blocking_=True)
 
         if is_local_ip(self.parent().selected_connection.ip):
             result = process.stdout.read().decode('utf-8').strip()
             process.kill()
         else:
-            stdin, stdout, stderr = process.exec_command(command)
+            stdin, stdout, stderr = process.exec_command(command[0])
             result = stdout.read().decode('utf-8').strip()
             process.close()
 

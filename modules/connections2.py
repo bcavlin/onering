@@ -8,7 +8,7 @@ from PyQt4.QtCore import Qt, QThread, SIGNAL, pyqtSlot
 from PyQt4.QtGui import QMainWindow, QStandardItemModel, QStandardItem
 
 from modules.abstr import Abstr
-from modules.commons import run_remote_command, is_local_ip
+from modules.commons import run_remote_command, is_local_ip, get_full_command
 from modules.custom_proxy_filter import CustomSortFilterProxyModel
 from modules.windowConnections_ui import Ui_MainWindow_connections
 
@@ -31,8 +31,7 @@ class WindowConnections(QMainWindow, Ui_MainWindow_connections, Abstr):
         self.selected_connection = selected_connection
         self.resize(1200, self.height())
         self.setup_ns_table_view(self.tableView_netstat)
-        self.thread_call_validate = NotImplemented
-        self.thread_call_ns = NotImplemented
+        self.thread_call_ns = NotImplemented  # long lived thread
         self.pushButton_start_netstat.setStyleSheet("background-color: green; color: white")
         self.pushButton_start_netstat.setText('Start')
         self.pushButton_start_netstat.clicked.connect(self.execute_command)
@@ -106,10 +105,10 @@ class WindowConnections(QMainWindow, Ui_MainWindow_connections, Abstr):
             self.stop_thread_ns()
 
     def validate_command(self):
-        self.thread_call_validate = DialogConnectionsThread(self, 'validate')
-        self.thread_call_validate.start()
-        self.thread_call_validate.wait()
-        return True if self.thread_call_validate.validation_result else False
+        thread_call = DialogConnectionsThread(self, 'validate')
+        thread_call.start()
+        thread_call.wait()
+        return True if thread_call.validation_result else False
 
     def get_table_model_data_in_array(self, table):
         """
@@ -259,14 +258,13 @@ class DialogConnectionsThread(QThread):
             self.execute_command()
 
     def validate_command(self):
-        command = "which netstat readlink sha1sum | awk 'END{print NR}'"
+        command = get_full_command("which netstat readlink sha1sum | awk 'END{print NR}'",
+                                   self.parent().selected_connection.sudo_password, use_sudo_=False)
         process = run_remote_command(command,
                                      self.parent().selected_connection.ip,
                                      self.parent().selected_connection.username,
                                      self.parent().selected_connection.password,
                                      self.parent().selected_connection.use_key_file,
-                                     self.parent().selected_connection.sudo_password,
-                                     use_sudo_=False,
                                      blocking_=True)
 
         if is_local_ip(self.parent().selected_connection.ip):
@@ -290,21 +288,20 @@ class DialogConnectionsThread(QThread):
         else:
             command = 'netstat -atuWp'
 
+        command = get_full_command(command,
+                                   self.parent().selected_connection.sudo_password, use_sudo_=True)
+
         process_netstat = run_remote_command('/bin/sh',
                                              self.parent().selected_connection.ip,
                                              self.parent().selected_connection.username,
                                              self.parent().selected_connection.password,
-                                             self.parent().selected_connection.use_key_file,
-                                             self.parent().selected_connection.sudo_password,
-                                             use_sudo_=False)
+                                             self.parent().selected_connection.use_key_file)
 
         process_shell = run_remote_command('/bin/sh',
                                            self.parent().selected_connection.ip,
                                            self.parent().selected_connection.username,
                                            self.parent().selected_connection.password,
                                            self.parent().selected_connection.use_key_file,
-                                           self.parent().selected_connection.sudo_password,
-                                           use_sudo_=False,
                                            blocking_=True)
 
         while not self.terminate_flag:
@@ -313,8 +310,6 @@ class DialogConnectionsThread(QThread):
                                         self.parent().selected_connection.username,
                                         self.parent().selected_connection.password,
                                         self.parent().selected_connection.use_key_file,
-                                        self.parent().selected_connection.sudo_password,
-                                        use_sudo_=True,
                                         process_=process_netstat)
 
             if output:
@@ -372,14 +367,15 @@ class DialogConnectionsThread(QThread):
         return parsed
 
     def get_application(self, pid, process_shell):
-        command = "readlink /proc/{0}/exe || echo n/a; ps u --pid {1} | awk '/{2}/ {{print $1}}' || echo n/a"
-        output = run_remote_command(command.format(pid, pid, pid),
+        command = get_full_command(
+            "readlink /proc/{0}/exe || echo n/a; ps u --pid {1} | awk '/{2}/ {{print $1}}' || echo n/a".format(pid, pid,
+                                                                                                               pid),
+            self.parent().selected_connection.sudo_password, use_sudo_=True)
+        output = run_remote_command(command,
                                     self.parent().selected_connection.ip,
                                     self.parent().selected_connection.username,
                                     self.parent().selected_connection.password,
                                     self.parent().selected_connection.use_key_file,
-                                    self.parent().selected_connection.sudo_password,
-                                    use_sudo_=True,
                                     process_=process_shell,
                                     blocking_=True,
                                     expect_results_=2)
@@ -390,16 +386,16 @@ class DialogConnectionsThread(QThread):
             return 'n/a', 'n/a'
 
     def get_sha1(self, application, process_shell):
-        command = 'sha1sum -b {0}'
-        output = run_remote_command(command.format(application),
-                                  self.parent().selected_connection.ip,
-                                  self.parent().selected_connection.username,
-                                  self.parent().selected_connection.password,
-                                  self.parent().selected_connection.use_key_file,
-                                  self.parent().selected_connection.sudo_password,
-                                  use_sudo_=True,
-                                  process_=process_shell,
-                                  blocking_=True)
+        command = get_full_command(
+            "sha1sum -b {0}".format(application),
+            self.parent().selected_connection.sudo_password, use_sudo_=True)
+        output = run_remote_command(command,
+                                    self.parent().selected_connection.ip,
+                                    self.parent().selected_connection.username,
+                                    self.parent().selected_connection.password,
+                                    self.parent().selected_connection.use_key_file,
+                                    process_=process_shell,
+                                    blocking_=True)
         if output:
             return output[0]
         else:
