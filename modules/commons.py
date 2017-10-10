@@ -3,6 +3,7 @@ import fcntl
 import getpass
 import logging
 import os
+import re
 import socket
 import subprocess
 import uuid
@@ -12,6 +13,16 @@ from Crypto.Cipher import AES
 from PyQt4.QtCore import QThread
 
 cipher = AES.new(uuid.uuid4().hex, AES.MODE_ECB)
+
+REGEX_UFW_IP4 = re.compile(r'^(?P<ip4>([0-9]{1,3}\.){3}[0-9]{1,3})')
+REGEX_UFW_IP6 = re.compile(r'^(?P<ip6>(.*?:){2,}[0-9a-zA-Z%.]+)')
+REGEX_UFW_PORT_RANGE = re.compile(r'^(?P<port_range>[0-9]{1,5}:[0-9]{1,5})/(?P<proto>tcp|udp)')
+REGEX_UFW_PORT_LIST = re.compile(r'^(?P<port_list>[0-9]{1,5}(,[0-9]{1,5})*)/(?P<proto>tcp|udp)')
+REGEX_UFW_PORT = re.compile(r'^(?P<port>[0-9]{1,5})')
+REGEX_UFW_V6 = re.compile(r'^(?P<v6>\(v6\))?')
+REGEX_UFW_INTERFACE = re.compile(r'^(on (?P<interface>\w+))?')
+REGEX_UFW_SPLIT = re.compile(r'(?<!\son)\s+')
+REGEX_UFW_WHOLE_LINE = re.compile(r'^(?P<to>.*)\s*(?P<action>(ALLOW|DENY|DROP|REJECT)\s(IN|OUT)?)\s*(?P<from>.*)')
 
 
 def encode(msg_text):

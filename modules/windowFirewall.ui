@@ -10,7 +10,7 @@
     <x>0</x>
     <y>0</y>
     <width>796</width>
-    <height>406</height>
+    <height>577</height>
    </rect>
   </property>
   <property name="font">
@@ -77,6 +77,30 @@
            </property>
            <property name="showGrid">
             <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="label_status">
+           <property name="text">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Status: &lt;span style=&quot; font-weight:600; color:#00007f;&quot;&gt;n/a&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           </property>
+           <property name="textFormat">
+            <enum>Qt::AutoText</enum>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="label_logging">
+           <property name="text">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Logging level: &lt;span style=&quot; font-weight:600; color:#00007f;&quot;&gt;n/a&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="label_default">
+           <property name="text">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Default: &lt;span style=&quot; font-weight:600; color:#00007f;&quot;&gt;n/a&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
            </property>
           </widget>
          </item>

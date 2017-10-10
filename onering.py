@@ -88,8 +88,9 @@ class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
 
         if thread_call.result:
             found = False
+            self.remove_window()
             for windows in self.windows_list:
-                if windows.selected_connection == self.selected_connection and windows.__class__ == WindowConnections.__class__:
+                if windows.selected_connection == self.selected_connection and type(windows) is WindowConnections:
                     found = True
             if not found:
                 window_connection = WindowConnections(selected_connection=self.selected_connection)
@@ -98,7 +99,6 @@ class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
                     window_connection.move(random.randint(100, 500), random.randint(100, 300))
                     self.windows_list.append(window_connection)  # save window so it is not garbage collected
                     window_connection.show()
-                    self.remove_window()
                 else:
                     QtGui.QMessageBox.warning(self.parent(), "Requirements warning",
                                               "Required: sudo password, netstat, readlink, sha1sum",
@@ -121,8 +121,9 @@ class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
 
         if thread_call.result:
             found = False
+            self.remove_window()
             for windows in self.windows_list:
-                if windows.selected_connection == self.selected_connection and windows.__class__ == WindowFirewall.__class__:
+                if windows.selected_connection == self.selected_connection and type(windows) is WindowFirewall:
                     found = True
             if not found:
                 window_firewall = WindowFirewall(selected_connection=self.selected_connection)
@@ -132,7 +133,6 @@ class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
                     window_firewall.move(random.randint(100, 800), random.randint(100, 500))
                     self.windows_list.append(window_firewall)  # save window so it is not garbage collected
                     window_firewall.show()
-                    self.remove_window()
                 else:
                     QtGui.QMessageBox.warning(self.parent(), "Password warning",
                                               "sudo password is required for this operation",

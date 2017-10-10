@@ -5,6 +5,7 @@ from PyQt4 import QtCore, QtGui
 from PyQt4.QtCore import Qt, QThread, SIGNAL
 from PyQt4.QtGui import QMainWindow, QStandardItemModel, QStandardItem
 
+from modules import commons
 from modules.abstr import Abstr
 from modules.commons import run_remote_command, is_local_ip, get_full_command
 from modules.custom_proxy_filter import CustomSortFilterProxyModel
@@ -12,10 +13,12 @@ from modules.windowFirewall_ui import Ui_MainWindow_firewall
 
 
 class WindowFirewall(QMainWindow, Ui_MainWindow_firewall, Abstr):
-    COLUMN_NUMBER = 0
-    COLUMN_TO = 1
-    COLUMN_ACTION = 2
-    COLUMN_FROM = 3
+    # COLUMN_NUMBER = 0
+    COLUMN_TO = 0
+    COLUMN_ACTION = 1
+    COLUMN_FROM = 2
+    COLUMN_INT = 3
+    COLUMN_V6 = 4
 
     def __init__(self, parent=None, selected_connection=None):
         QMainWindow.__init__(self, flags=QtCore.Qt.Window)
@@ -30,16 +33,18 @@ class WindowFirewall(QMainWindow, Ui_MainWindow_firewall, Abstr):
     def setup_firewall_table_view(self):
         table = self.tableView_firewall
         model = QStandardItemModel(self)
-        model.setHorizontalHeaderLabels(['#', 'To', 'Action', 'From'])
+        model.setHorizontalHeaderLabels(['To', 'Action', 'From'])
 
         proxy = CustomSortFilterProxyModel(self)
         proxy.setSourceModel(model)
         table.setModel(proxy)
 
-        table.setColumnWidth(WindowFirewall.COLUMN_NUMBER, 50)
+        # table.setColumnWidth(WindowFirewall.COLUMN_NUMBER, 50)
         table.setColumnWidth(WindowFirewall.COLUMN_FROM, 200)
         table.setColumnWidth(WindowFirewall.COLUMN_ACTION, 100)
         table.setColumnWidth(WindowFirewall.COLUMN_TO, 200)
+        table.setColumnWidth(WindowFirewall.COLUMN_INT, 100)
+        table.setColumnWidth(WindowFirewall.COLUMN_V6, 100)
 
         header = table.horizontalHeader()
         header.setDefaultAlignment(Qt.AlignHCenter)
@@ -80,8 +85,8 @@ class WindowFirewall(QMainWindow, Ui_MainWindow_firewall, Abstr):
         model = self.tableView_firewall.model().sourceModel()  # type: QStandardItemModel
 
         for message in message_array:
-            item1 = QStandardItem(message[WindowFirewall.COLUMN_NUMBER])
-            item1.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+            # item1 = QStandardItem(message[WindowFirewall.COLUMN_NUMBER])
+            # item1.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
 
             item2 = QStandardItem(message[WindowFirewall.COLUMN_FROM])
             item2.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
@@ -92,11 +97,19 @@ class WindowFirewall(QMainWindow, Ui_MainWindow_firewall, Abstr):
             item4 = QStandardItem(message[WindowFirewall.COLUMN_TO])
             item4.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
 
-            row = 4 * [None]
-            row[WindowFirewall.COLUMN_NUMBER] = item1
+            item5 = QStandardItem(message[WindowFirewall.COLUMN_INT])
+            item5.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+
+            item6 = QStandardItem(message[WindowFirewall.COLUMN_V6])
+            item6.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+
+            row = 5 * [None]
+            # row[WindowFirewall.COLUMN_NUMBER] = item1
             row[WindowFirewall.COLUMN_FROM] = item2
             row[WindowFirewall.COLUMN_ACTION] = item3
             row[WindowFirewall.COLUMN_TO] = item4
+            row[WindowFirewall.COLUMN_INT] = item5
+            row[WindowFirewall.COLUMN_V6] = item6
 
             model.appendRow(row)
 
@@ -155,7 +168,7 @@ class DialogFirewallThread(QThread):
         logging.debug(command + ' result: ' + result)
 
     def execute_command(self):
-        command = get_full_command("ufw status numbered", self.parent().selected_connection.sudo_password)
+        command = get_full_command("ufw status verbose", self.parent().selected_connection.sudo_password)
         process = run_remote_command(command,
                                      self.parent().selected_connection.ip,
                                      self.parent().selected_connection.username,
@@ -189,21 +202,65 @@ class DialogFirewallThread(QThread):
             self.parent().firewall_active = True if status == 'active' else False
             logging.debug('Firewall status is: ' + status)
         else:
-            match = re.match(r'^(\[.*\])\s*(.*)\s*(ALLOW|DENY|DROP|REJECT)\s(IN|OUT)?\s*(.*)', line)
+            logging.debug('Line is: ' + line)
+            match = commons.REGEX_UFW_WHOLE_LINE.search(line)
+            logging.debug('match is: ' + str(match))
             if match:
-                size = len(match.groups())
-                parsed.append(match.group(1).strip())
-                parsed.append(match.group(2).strip())
-                if size == 4:
-                    parsed.append(match.group(3).strip())
-                    parsed.append(match.group(4).strip())
-                else:
-                    parsed.append(match.group(3).strip() + ' ' + match.group(4).strip())
-                    parsed.append(match.group(5).strip())
+                parsed = 5 * [None]
+                if match.group('to'):
+                    to = match.group('to').strip()
+                    parsed[WindowFirewall.COLUMN_TO] = to
+                    split = re.split(commons.REGEX_UFW_SPLIT, to)
+                    if split:
+                        for s in split:
+                            search1 = commons.REGEX_UFW_IP4.search(s)
+                            if search1 and search1.group('ip4'):
+                                logging.debug('found ip4 ' + search1.group('ip4'))
+                                continue
+                            search2 = commons.REGEX_UFW_IP6.search(s)
+                            if search2 and search2.group('ip6'):
+                                logging.debug('found ip6 ' + search2.group('ip6'))
+                                continue
+                            search3 = commons.REGEX_UFW_INTERFACE.search(s)
+                            if search3 and search3.group('interface'):
+                                logging.debug('found interface ' + search3.group('interface'))
+                                continue
+                            search4 = commons.REGEX_UFW_PORT_LIST.search(s)
+                            if search4 and search4.group('port_list') and search4.group('proto'):
+                                logging.debug('found port_list ' + search4.group('port_list') + ' and proto ' + search4.group(
+                                    'proto'))
+                                continue
+                            search5 = commons.REGEX_UFW_PORT_RANGE.search(s)
+                            if search5 and search5.group('port_range') and search5.group('proto'):
+                                logging.debug('found port_range ' + search5.group('port_range') + ' and proto ' + search5.group(
+                                    'proto'))
+                                continue
+                            search6 = commons.REGEX_UFW_V6.search(s)
+                            if search6 and search6.group('v6'):
+                                logging.debug('found v6 ' + search6.group('v6'))
+                                continue
+                            search7 = commons.REGEX_UFW_PORT.search(s)
+                            if search7 and search7.group('port'):
+                                logging.debug('found port ' + search7.group('port'))
+                                continue
+
+                if match.group('action'):
+                    parsed[WindowFirewall.COLUMN_ACTION] = match.group('action').strip()
+
+                if match.group('from'):
+                    parsed[WindowFirewall.COLUMN_FROM] = match.group('from').strip()
+
+                    # if match.group('int'):
+                    #     parsed[WindowFirewall.COLUMN_INT] = match.group('int').strip()
+                    #
+                    # if match.group('v6'):
+                    #     parsed[WindowFirewall.COLUMN_V6] = match.group('v6').strip()
+
         return parsed
 
     def validate_command(self):
-        command = get_full_command("which ufw | awk 'END{{print NR}}'", self.parent().selected_connection.sudo_password, use_sudo_=False)
+        command = get_full_command("which ufw | awk 'END{{print NR}}'", self.parent().selected_connection.sudo_password,
+                                   use_sudo_=False)
         process = run_remote_command(command,
                                      self.parent().selected_connection.ip,
                                      self.parent().selected_connection.username,
