@@ -22,7 +22,10 @@ REGEX_UFW_PORT = re.compile(r'^(?P<port>[0-9]{1,5})')
 REGEX_UFW_V6 = re.compile(r'^(?P<v6>\(v6\))?')
 REGEX_UFW_INTERFACE = re.compile(r'^(on (?P<interface>\w+))?')
 REGEX_UFW_SPLIT = re.compile(r'(?<!\son)\s+')
-REGEX_UFW_WHOLE_LINE = re.compile(r'^(?P<to>.*)\s*(?P<action>(ALLOW|DENY|DROP|REJECT)\s(IN|OUT)?)\s*(?P<from>.*)')
+REGEX_UFW_WHOLE_LINE = re.compile(r'^(?P<to>.*)\s*(?P<action>(ALLOW|DENY|REJECT|LIMIT)\s(IN|OUT|FWD)?)\s*(?P<from>.*)')
+REGEX_UFW_STATUS = re.compile(r'^Status:\s*(.*)')
+REGEX_UFW_LOGGING = re.compile(r'^Logging:\s*(.*)')
+REGEX_UFW_DEFAULT = re.compile(r'^Default:\s*(.*)')
 
 
 def encode(msg_text):
