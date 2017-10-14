@@ -13,13 +13,18 @@ from modules.windowFirewall_ui import Ui_MainWindow_firewall, _translate
 
 
 class WindowFirewall(QMainWindow, Ui_MainWindow_firewall, Abstr):
+    NUMBER_OF_COLUMNS = 10
     COLUMN_TO_IP = 0
     COLUMN_TO_PORT = 1
     COLUMN_TO_V6 = 2
     COLUMN_TO_INTERFACE = 3
     COLUMN_TO_PROTOCOL = 4
     COLUMN_ACTION = 5
-    COLUMN_FROM = 6
+    # COLUMN_FROM = 6
+    COLUMN_FROM_IP = 6
+    COLUMN_FROM_PORT = 7
+    COLUMN_FROM_V6 = 8
+    COLUMN_FROM_PROTOCOL = 9
 
     def __init__(self, parent=None, selected_connection=None):
         QMainWindow.__init__(self, flags=QtCore.Qt.Window)
@@ -35,19 +40,23 @@ class WindowFirewall(QMainWindow, Ui_MainWindow_firewall, Abstr):
         table = self.tableView_firewall
         model = QStandardItemModel(self)
         model.setHorizontalHeaderLabels(
-            ['To: ip', ' To: port', 'To: ver', 'On iface', 'To: proto', 'Action', 'From'])
+            ['To:ip', ' To:port', 'To:ver', 'On iface', 'To:proto', 'Action', 'From:ip', 'From:port', 'From:ver',
+             'From:proto'])
 
         proxy = CustomSortFilterProxyModel(self)
         proxy.setSourceModel(model)
         table.setModel(proxy)
 
         table.setColumnWidth(WindowFirewall.COLUMN_TO_IP, 200)
-        table.setColumnWidth(WindowFirewall.COLUMN_TO_PORT, 200)
+        table.setColumnWidth(WindowFirewall.COLUMN_TO_PORT, 150)
         table.setColumnWidth(WindowFirewall.COLUMN_TO_V6, 70)
         table.setColumnWidth(WindowFirewall.COLUMN_TO_INTERFACE, 100)
         table.setColumnWidth(WindowFirewall.COLUMN_TO_PROTOCOL, 70)
         table.setColumnWidth(WindowFirewall.COLUMN_ACTION, 100)
-        table.setColumnWidth(WindowFirewall.COLUMN_FROM, 400)
+        table.setColumnWidth(WindowFirewall.COLUMN_FROM_IP, 200)
+        table.setColumnWidth(WindowFirewall.COLUMN_FROM_PORT, 150)
+        table.setColumnWidth(WindowFirewall.COLUMN_FROM_V6, 70)
+        table.setColumnWidth(WindowFirewall.COLUMN_FROM_PROTOCOL, 70)
 
         header = table.horizontalHeader()
         header.setDefaultAlignment(Qt.AlignHCenter)
@@ -109,15 +118,16 @@ class WindowFirewall(QMainWindow, Ui_MainWindow_firewall, Abstr):
 
     def update_ufw(self, message_array):
         model = self.tableView_firewall.model().sourceModel()  # type: QStandardItemModel
-        row = 7 * [None]
+        row = WindowFirewall.NUMBER_OF_COLUMNS * [None]
 
         for message in message_array:
             for idx, m in enumerate(message):
                 item = QStandardItem(m)
                 if idx in (
                         WindowFirewall.COLUMN_TO_PROTOCOL, WindowFirewall.COLUMN_TO_V6,
-                        WindowFirewall.COLUMN_TO_INTERFACE,
-                        WindowFirewall.COLUMN_ACTION):
+                        WindowFirewall.COLUMN_TO_INTERFACE, WindowFirewall.COLUMN_ACTION,
+                        WindowFirewall.COLUMN_FROM_PROTOCOL, WindowFirewall.COLUMN_FROM_V6,
+                        WindowFirewall.COLUMN_TO_PORT, WindowFirewall.COLUMN_FROM_PORT):
                     item.setTextAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
                 else:
                     item.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
@@ -227,70 +237,82 @@ class DialogFirewallThread(QThread):
             match = commons.REGEX_UFW_WHOLE_LINE.search(line)
             logging.debug('match is: ' + str(match))
             if match:
-                parsed = 7 * [None]
+                parsed = WindowFirewall.NUMBER_OF_COLUMNS * [None]
                 if match.group('to'):  # this refers to whole to group - it needs to be split
                     to = match.group('to').strip()
-                    split = re.split(commons.REGEX_UFW_SPLIT, to)
-                    if split:
-                        for s in split:
-                            search1 = commons.REGEX_UFW_IP4.search(s)
-                            if search1 and search1.group('ip4'):
-                                logging.debug('found ip4 ' + search1.group('ip4'))
-                                parsed[WindowFirewall.COLUMN_TO_IP] = search1.group('ip4').strip()
-                                continue
-                            search2 = commons.REGEX_UFW_IP6.search(s)
-                            if search2 and search2.group('ip6'):
-                                logging.debug('found ip6 ' + search2.group('ip6'))
-                                parsed[WindowFirewall.COLUMN_TO_IP] = search2.group('ip6').strip()
-                                continue
-                            search3 = commons.REGEX_UFW_INTERFACE.search(s)
-                            if search3 and search3.group('interface'):
-                                logging.debug('found interface ' + search3.group('interface'))
-                                parsed[WindowFirewall.COLUMN_TO_INTERFACE] = search3.group('interface').strip()
-                                continue
-                            search4 = commons.REGEX_UFW_PORT_LIST.search(s)
-                            if search4 and search4.group('port_list') and search4.group('proto'):
-                                logging.debug(
-                                    'found port_list ' + search4.group('port_list') + ' and proto ' + search4.group(
-                                        'proto'))
-                                parsed[WindowFirewall.COLUMN_TO_PORT] = search4.group('port_list').strip()
-                                parsed[WindowFirewall.COLUMN_TO_PROTOCOL] = search4.group('proto').strip()
-                                continue
-                            search5 = commons.REGEX_UFW_PORT_RANGE.search(s)
-                            if search5 and search5.group('port_range') and search5.group('proto'):
-                                logging.debug(
-                                    'found port_range ' + search5.group('port_range') + ' and proto ' + search5.group(
-                                        'proto'))
-                                parsed[WindowFirewall.COLUMN_TO_PORT] = search5.group('port_range').strip()
-                                parsed[WindowFirewall.COLUMN_TO_PROTOCOL] = search5.group('proto').strip()
-                                continue
-                            search6 = commons.REGEX_UFW_V6.search(s)
-                            if search6 and search6.group('v6'):
-                                logging.debug('found v6 ' + search6.group('v6'))
-                                parsed[WindowFirewall.COLUMN_TO_V6] = search6.group('v6').strip()
-                                continue
-                            search7 = commons.REGEX_UFW_PORT.search(s)
-                            if search7 and search7.group('port'):
-                                logging.debug('found port ' + search7.group('port'))
-                                parsed[WindowFirewall.COLUMN_TO_PORT] = search7.group('port').strip()
-                                continue
-
-                    if not parsed[WindowFirewall.COLUMN_TO_PROTOCOL]:
-                        parsed[WindowFirewall.COLUMN_TO_PROTOCOL] = 'both'
-                    if not parsed[WindowFirewall.COLUMN_TO_V6]:
-                        parsed[WindowFirewall.COLUMN_TO_V6] = '(v4)'
-                    if not parsed[WindowFirewall.COLUMN_TO_IP]:
-                        parsed[WindowFirewall.COLUMN_TO_IP] = 'Anywhere'
-                    if not parsed[WindowFirewall.COLUMN_TO_INTERFACE]:
-                        parsed[WindowFirewall.COLUMN_TO_INTERFACE] = 'All'
+                    self.split_to_from(parsed, to, 'to')
 
                 if match.group('action'):
                     parsed[WindowFirewall.COLUMN_ACTION] = match.group('action').strip()
 
                 if match.group('from'):
-                    parsed[WindowFirewall.COLUMN_FROM] = match.group('from').strip()
+                    from_ = match.group('from').strip()
+                    self.split_to_from(parsed, from_, 'from')
 
         return parsed
+
+    def split_to_from(self, parsed, line, indicator):
+        split = re.split(commons.REGEX_UFW_SPLIT, line)
+        if split:
+            for s in split:
+                search, group_ = commons.REGEX_UFW_ANYWHERE.search(s), 'any'
+                if search and search.group(group_):
+                    logging.debug('found ' + group_ + ' ' + search.group(group_))
+                    parsed[
+                        WindowFirewall.COLUMN_TO_IP if indicator == 'to' else WindowFirewall.COLUMN_FROM_IP] = search.group(
+                        group_).strip()
+                    continue
+                search, group_ = commons.REGEX_UFW_IP4.search(s), 'ip4'
+                if search and search.group(group_):
+                    logging.debug('found ' + group_ + ' ' + search.group(group_))
+                    parsed[
+                        WindowFirewall.COLUMN_TO_IP if indicator == 'to' else WindowFirewall.COLUMN_FROM_IP] = search.group(
+                        group_).strip()
+                    continue
+                search, group_ = commons.REGEX_UFW_IP6.search(s), 'ip6'
+                if search and search.group(group_):
+                    logging.debug('found ' + group_ + ' ' + search.group(group_))
+                    parsed[
+                        WindowFirewall.COLUMN_TO_IP if indicator == 'to' else WindowFirewall.COLUMN_FROM_IP] = search.group(
+                        group_).strip()
+                    continue
+                search, group_ = commons.REGEX_UFW_INTERFACE.search(s), 'interface'
+                if search and search.group(group_):
+                    logging.debug('found ' + group_ + ' ' + search.group(group_))
+                    parsed[WindowFirewall.COLUMN_TO_INTERFACE] = search.group(group_).strip()
+                    continue
+                search, group_, group2_ = commons.REGEX_UFW_PORT_LIST.search(s), 'port_list', 'proto'
+                if search and search.group(group_) and search.group(group2_):
+                    logging.debug('found ' + group_ + ' ' + search.group(group_))
+                    logging.debug('found ' + group2_ + ' ' + search.group(group2_))
+                    parsed[WindowFirewall.COLUMN_TO_PORT if indicator == 'to' else WindowFirewall.COLUMN_FROM_PORT] = search.group(group_).strip()
+                    parsed[WindowFirewall.COLUMN_TO_PROTOCOL if indicator == 'to' else WindowFirewall.COLUMN_FROM_PROTOCOL] = search.group(group2_).strip()
+                    continue
+                search, group_, group2_ = commons.REGEX_UFW_PORT_RANGE.search(s), 'port_range', 'proto'
+                if search and search.group(group_) and search.group(group2_):
+                    logging.debug('found ' + group_ + ' ' + search.group(group_))
+                    logging.debug('found ' + group2_ + ' ' + search.group(group2_))
+                    parsed[WindowFirewall.COLUMN_TO_PORT if indicator == 'to' else WindowFirewall.COLUMN_FROM_PORT] = search.group(group_).strip()
+                    parsed[WindowFirewall.COLUMN_TO_PROTOCOL if indicator == 'to' else WindowFirewall.COLUMN_FROM_PROTOCOL] = search.group(group2_).strip()
+                    continue
+                search, group_ = commons.REGEX_UFW_V6.search(s), 'v6'
+                if search and search.group(group_):
+                    logging.debug('found ' + group_ + ' ' + search.group(group_))
+                    parsed[WindowFirewall.COLUMN_TO_V6 if indicator == 'to' else WindowFirewall.COLUMN_FROM_V6] = search.group(group_).strip()
+                    continue
+                search, group_ = commons.REGEX_UFW_PORT.search(s), 'port'
+                if search and search.group(group_):
+                    logging.debug('found ' + group_ + ' ' + search.group(group_))
+                    parsed[WindowFirewall.COLUMN_TO_PORT if indicator == 'to' else WindowFirewall.COLUMN_FROM_PORT] = search.group(group_).strip()
+                    continue
+        if not parsed[WindowFirewall.COLUMN_TO_PROTOCOL if indicator == 'to' else WindowFirewall.COLUMN_FROM_PROTOCOL]:
+            parsed[WindowFirewall.COLUMN_TO_PROTOCOL if indicator == 'to' else WindowFirewall.COLUMN_FROM_PROTOCOL] = 'both'
+        if not parsed[WindowFirewall.COLUMN_TO_V6 if indicator == 'to' else WindowFirewall.COLUMN_FROM_V6]:
+            parsed[WindowFirewall.COLUMN_TO_V6 if indicator == 'to' else WindowFirewall.COLUMN_FROM_V6] = '(v4)'
+        if not parsed[WindowFirewall.COLUMN_TO_IP if indicator == 'to' else WindowFirewall.COLUMN_FROM_IP]:
+            parsed[WindowFirewall.COLUMN_TO_IP if indicator == 'to' else WindowFirewall.COLUMN_FROM_IP] = 'Anywhere'
+        if not parsed[WindowFirewall.COLUMN_TO_INTERFACE]:
+            parsed[WindowFirewall.COLUMN_TO_INTERFACE] = 'All'
 
     def validate_command(self):
         command = get_full_command("which ufw | awk 'END{{print NR}}'", self.parent().selected_connection.sudo_password,

@@ -14,8 +14,9 @@ from PyQt4.QtCore import QThread
 
 cipher = AES.new(uuid.uuid4().hex, AES.MODE_ECB)
 
-REGEX_UFW_IP4 = re.compile(r'^(?P<ip4>([0-9]{1,3}\.){3}[0-9]{1,3})')
-REGEX_UFW_IP6 = re.compile(r'^(?P<ip6>(.*?:){2,}[0-9a-zA-Z%.]+)')
+REGEX_UFW_ANYWHERE = re.compile(r'^(?P<any>Anywhere)')
+REGEX_UFW_IP4 = re.compile(r'^(?P<ip4>([0-9]{1,3}\.){3}[0-9]{1,3}(/\d+)?)')
+REGEX_UFW_IP6 = re.compile(r'^(?P<ip6>(.*?:){2,}[0-9a-zA-Z%.]+(/\d+)?)')
 REGEX_UFW_PORT_RANGE = re.compile(r'^(?P<port_range>[0-9]{1,5}:[0-9]{1,5})/(?P<proto>tcp|udp)')
 REGEX_UFW_PORT_LIST = re.compile(r'^(?P<port_list>[0-9]{1,5}(,[0-9]{1,5})*)/(?P<proto>tcp|udp)')
 REGEX_UFW_PORT = re.compile(r'^(?P<port>[0-9]{1,5})')
