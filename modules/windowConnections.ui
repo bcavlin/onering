@@ -68,6 +68,9 @@
                  <property name="enabled">
                   <bool>true</bool>
                  </property>
+                 <property name="autoFillBackground">
+                  <bool>false</bool>
+                 </property>
                  <property name="text">
                   <string/>
                  </property>
@@ -149,6 +152,27 @@
                  </property>
                  <property name="checked">
                   <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="checkBox_hide_local">
+                 <property name="text">
+                  <string>Hide local-&gt;local</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="checkBox_hide_empty">
+                 <property name="text">
+                  <string>Hide empty</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="Line" name="line">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
                  </property>
                 </widget>
                </item>

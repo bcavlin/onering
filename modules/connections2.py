@@ -83,6 +83,8 @@ class WindowConnections(QMainWindow, Ui_MainWindow_connections, Abstr):
             self.pushButton_start_netstat.setStyleSheet("background-color: green; color: white")
             self.filterLineEdit.setText('')
             self.checkBox_numeric.setEnabled(True)
+            self.checkBox_hide_empty.setEnabled(True)
+            self.checkBox_hide_local.setEnabled(True)
             self.thread_call_ns.terminate_flag = True
             self.thread_call_ns.wait(2)
 
@@ -95,6 +97,8 @@ class WindowConnections(QMainWindow, Ui_MainWindow_connections, Abstr):
             self.pushButton_start_netstat.setText('Stop')
             self.pushButton_start_netstat.setStyleSheet("background-color: red; color: white")
             self.checkBox_numeric.setEnabled(False)
+            self.checkBox_hide_empty.setEnabled(False)
+            self.checkBox_hide_local.setEnabled(False)
             self.tableView_netstat.model().reset()
             self.thread_call_ns = DialogConnectionsThread(self, 'execute netstat')
             self.connect(self.thread_call_ns, SIGNAL("update_netstat"), self.update_netstat)
@@ -250,6 +254,9 @@ class DialogConnectionsThread(QThread):
         self.proc_user = {}  # list of process id's and its users
         self.proc_exe = {}  # list of process id's and its exe
         self.proc_sha1 = {}  # list of process id's and its sha1
+        self.is_numberic_checked = self.parent().checkBox_numeric.isChecked()
+        self.is_hide_local_checked = self.parent().checkBox_hide_local.isChecked()
+        self.is_hide_empty_checked = self.parent().checkBox_hide_empty.isChecked()
 
     def run(self):
         if self.command == 'validate':
@@ -283,7 +290,7 @@ class DialogConnectionsThread(QThread):
             self.validation_result = False
 
     def execute_command(self):
-        if self.parent().checkBox_numeric.isChecked():
+        if self.is_numberic_checked:
             command = 'netstat -antuWp'
         else:
             command = 'netstat -atuWp'
@@ -338,32 +345,42 @@ class DialogConnectionsThread(QThread):
             r'^(tcp6|udp6|tcp|udp)\s*\d+\s*\d+\s*([\w*-:\[\]]*:[\w*]*)\s*([\w*-:\[\]]*:[\w*]*)\s*([CLTEF]\w*|\s)\s*([-|\d/]*).*$',
             line.strip())
         if match:
-            # order
-            # protocol, local addr, local port, remote addr, remote port, state, pid, appl, sha1, last
-            parsed.append(match.group(1).strip())  # protocol
-
             match2 = re.match(r'([\w*-:\[\]]*):([\w*]*)', match.group(2).strip())
-            parsed.append(match2.group(1))  # ip from address
-            parsed.append(match2.group(2))  # ip from port
-
             match3 = re.match(r'([\w*-:\[\]]*):([\w*]*)', match.group(3).strip())
-            parsed.append(match3.group(1))  # ip remote address
-            parsed.append(match3.group(2))  # ip remote port
 
-            parsed.append(match.group(4).strip())  # state
+            ip_from = match2.group(1)
+            ip_to = match3.group(1)
+            state = match.group(4).strip()
 
-            pid_ = re.sub('/', '', match.group(5).strip())
-            parsed.append(pid_)  # pid
+            if self.is_hide_empty_checked and not state:
+                return []
+            elif self.is_hide_local_checked and ('127.0.0.1' == ip_from or '::' == ip_from or '::1' == ip_from) and (
+                        '127.0.0.1' == ip_to or '::' == ip_to or '::1' == ip_to):
+                return []
+            else:
+                # protocol, local addr, local port, remote addr, remote port, state, pid, appl, sha1, last
+                parsed.append(match.group(1).strip())  # protocol
 
-            if '-' != pid_ and not self.proc_exe.get(pid_) and pid_:
-                logging.debug('Adding PID to the list: ' + pid_)
-                self.proc_exe[pid_], self.proc_user[pid_] = self.get_application(pid_, process_shell)  # add item
-                if self.proc_exe[pid_]:
-                    self.proc_sha1[pid_] = self.get_sha1(self.proc_exe[pid_], process_shell)  # add item
+                parsed.append(ip_from)  # ip from address
+                parsed.append(match2.group(2))  # ip from port
 
-            parsed.append(self.proc_exe.get(pid_))  # appl
-            parsed.append(self.proc_sha1.get(pid_))  # sha1
-            parsed.append(datetime.datetime.now().strftime('%H:%M:%S'))  # last
+                parsed.append(ip_to)  # ip remote address
+                parsed.append(match3.group(2))  # ip remote port
+
+                parsed.append(state)  # state
+
+                pid_ = re.sub('/', '', match.group(5).strip())
+                parsed.append(pid_)  # pid
+
+                if '-' != pid_ and not self.proc_exe.get(pid_) and pid_:
+                    logging.debug('Adding PID to the list: ' + pid_)
+                    self.proc_exe[pid_], self.proc_user[pid_] = self.get_application(pid_, process_shell)  # add item
+                    if self.proc_exe[pid_]:
+                        self.proc_sha1[pid_] = self.get_sha1(self.proc_exe[pid_], process_shell)  # add item
+
+                parsed.append(self.proc_exe.get(pid_))  # appl
+                parsed.append(self.proc_sha1.get(pid_))  # sha1
+                parsed.append(datetime.datetime.now().strftime('%H:%M:%S'))  # last
         return parsed
 
     def get_application(self, pid, process_shell):
