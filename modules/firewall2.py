@@ -20,7 +20,6 @@ class WindowFirewall(QMainWindow, Ui_MainWindow_firewall, Abstr):
     COLUMN_TO_INTERFACE = 3
     COLUMN_TO_PROTOCOL = 4
     COLUMN_ACTION = 5
-    # COLUMN_FROM = 6
     COLUMN_FROM_IP = 6
     COLUMN_FROM_PORT = 7
     COLUMN_FROM_V6 = 8
@@ -134,6 +133,11 @@ class WindowFirewall(QMainWindow, Ui_MainWindow_firewall, Abstr):
                 row[idx] = item
             model.appendRow(row)
 
+    def remove_rule(self):
+        pass
+
+    def insert_rule(self):
+        pass
 
 class DialogFirewallThread(QThread):
     def __init__(self, parent, command='validate'):

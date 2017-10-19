@@ -6,6 +6,7 @@ import sys
 from PyQt4 import QtGui, QtCore
 from PyQt4.QtGui import QMainWindow, QSystemTrayIcon, QIcon, QMenu, QApplication
 from screeninfo import get_monitors
+from tendo import singleton
 
 import oneringui_ui
 from modules.commons import Connection, ValidateConnectionThread
@@ -152,6 +153,7 @@ class OneRingApp(QMainWindow, oneringui_ui.Ui_MainWindow):
 
 
 def main():
+    me = singleton.SingleInstance()  # will sys.exit(-1) if other instance is running
     logging.basicConfig(level=logging.DEBUG)
     app = QApplication(sys.argv)
     form = OneRingApp()

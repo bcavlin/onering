@@ -8,7 +8,7 @@ from PyQt4.QtCore import Qt, QThread, SIGNAL, pyqtSlot
 from PyQt4.QtGui import QMainWindow, QStandardItemModel, QStandardItem
 
 from modules.abstr import Abstr
-from modules.commons import run_remote_command, is_local_ip, get_full_command
+from modules.commons import run_remote_command, is_local_ip, get_full_command, get_table_model_data_in_array
 from modules.custom_proxy_filter import CustomSortFilterProxyModel
 from modules.windowConnections_ui import Ui_MainWindow_connections
 
@@ -25,18 +25,21 @@ class WindowConnections(QMainWindow, Ui_MainWindow_connections, Abstr):
     COLUMN_NS_SHA1 = 8
     COLUMN_NS_LAST = 9
 
+    COLUMN_ALL_APPLICATION = 0
+    COLUMN_ALL_SHA1 = 1
+    COLUMN_ALL_STATUS = 2
+
     def __init__(self, parent=None, selected_connection=None):
         QMainWindow.__init__(self, flags=QtCore.Qt.Window)
         self.setupUi(self)
         self.selected_connection = selected_connection
         self.resize(1200, self.height())
         self.setup_ns_table_view(self.tableView_netstat)
+        self.setup_all_table_view(self.tableView_all_connections)
         self.thread_call_ns = NotImplemented  # long lived thread
         self.pushButton_start_netstat.setStyleSheet("background-color: green; color: white")
         self.pushButton_start_netstat.setText('Start')
         self.pushButton_start_netstat.clicked.connect(self.execute_command)
-        self.pushButton_clear.clicked.connect(self.clear_filter)
-        self.filterLineEdit.textChanged.connect(self.update_filter)
 
     def setup_ns_table_view(self, table):
         """
@@ -45,7 +48,7 @@ class WindowConnections(QMainWindow, Ui_MainWindow_connections, Abstr):
         """
         model = QStandardItemModel(self)
         model.setHorizontalHeaderLabels(
-            ['Prt', 'Local Addr', 'L. Port', 'Remote Addr', 'R. Port', 'State', 'PID', 'Application', 'SHA1',
+            ['Prt', 'Local Addr', 'L. Port', 'Remote Addr', 'R. Port', 'State', 'PID', 'Application',
              'Last'])
 
         model.setHeaderData(WindowConnections.COLUMN_NS_APPLICATION, Qt.Horizontal, Qt.AlignLeft, Qt.TextAlignmentRole)
@@ -64,17 +67,49 @@ class WindowConnections(QMainWindow, Ui_MainWindow_connections, Abstr):
         table.setColumnWidth(WindowConnections.COLUMN_NS_PROTO, 50)
         table.setColumnWidth(WindowConnections.COLUMN_NS_LAST, 100)
         table.setColumnWidth(WindowConnections.COLUMN_NS_APPLICATION, 400)
-        table.setColumnWidth(WindowConnections.COLUMN_NS_SHA1, 400)
 
         header = table.horizontalHeader()
         header.setDefaultAlignment(Qt.AlignHCenter)
 
-    def clear_filter(self):
+    def setup_all_table_view(self, table):
+        """
+        :param QtGui.QTableView table:
+        :return:
+        """
+        model = QStandardItemModel(self)
+        model.setHorizontalHeaderLabels(
+            ['Application', 'SHA1', 'Status'])
+
+        model.setHeaderData(WindowConnections.COLUMN_ALL_APPLICATION, Qt.Horizontal, Qt.AlignLeft, Qt.TextAlignmentRole)
+        model.setHeaderData(WindowConnections.COLUMN_ALL_SHA1, Qt.Horizontal, Qt.AlignLeft, Qt.TextAlignmentRole)
+
+        proxy = CustomSortFilterProxyModel(self)
+        proxy.setSourceModel(model)
+        table.setModel(proxy)
+
+        table.setColumnWidth(WindowConnections.COLUMN_ALL_APPLICATION, 400)
+        table.setColumnWidth(WindowConnections.COLUMN_ALL_SHA1, 400)
+        table.setColumnWidth(WindowConnections.COLUMN_ALL_STATUS, 100)
+
+        header = table.horizontalHeader()
+        header.setDefaultAlignment(Qt.AlignHCenter)
+
+    @pyqtSlot(name='on_pushButton_clear_clicked')
+    def on_pushButton_clear_clicked(self):
         self.filterLineEdit.setText('')
 
-    @pyqtSlot(str)
-    def update_filter(self, text):
+    @pyqtSlot(str, name='on_filterLineEdit_textChanged')
+    def on_filterLineEdit_textChanged(self, text):
         proxy = self.tableView_netstat.model()  # type: CustomSortFilterProxyModel
+        proxy.setFilterString(text)
+
+    @pyqtSlot(name='on_pushButton_clear_2_clicked')
+    def on_pushButton_clear_2_clicked(self):
+        self.filterLineEdit_2.setText('')
+
+    @pyqtSlot(str, name='on_filterLineEdit_2_textChanged')
+    def on_filterLineEdit_2_textChanged(self, text):
+        proxy = self.tableView_all_connections.model()  # type: CustomSortFilterProxyModel
         proxy.setFilterString(text)
 
     def stop_thread_ns(self):
@@ -114,21 +149,6 @@ class WindowConnections(QMainWindow, Ui_MainWindow_connections, Abstr):
         thread_call.wait()
         return True if thread_call.validation_result else False
 
-    def get_table_model_data_in_array(self, table):
-        """
-        :param QtGui.QTableView table:
-        :return:
-        """
-        model = table.model().sourceModel()
-        data = []
-        for row in range(model.rowCount()):
-            data.append([])
-            for column in range(model.columnCount()):
-                index = model.index(row, column)
-                data[row].append(str(model.data(index)))
-
-        return data
-
     def update_netstat(self, message_array):
         """
         :param message_array:
@@ -136,18 +156,30 @@ class WindowConnections(QMainWindow, Ui_MainWindow_connections, Abstr):
         """
         self.thread_call_ns.gather_data = False  # pause processing
 
-        data_list = self.get_table_model_data_in_array(self.tableView_netstat)
+        data_list_ns = get_table_model_data_in_array(self.tableView_netstat)
+        data_list_all = get_table_model_data_in_array(self.tableView_all_connections)
 
-        for idx, data in enumerate(data_list):
+        for idx, data in enumerate(data_list_ns):
             # remove date to identify those not sent in messages
             model = self.tableView_netstat.model().sourceModel()
-            index = model.index(idx, WindowConnections.COLUMN_NS_LAST)
+            index = model.index(idx, WindowConnections.COLUMN_NS_LAST - 1)
             item = model.itemFromIndex(index)  # type: QStandardItem
+            # set all rows as stale
             item.setText('-1')
 
         for message in message_array:
             row_data_index = -1
-            for idx, data in enumerate(data_list):
+            for idx, data in enumerate(data_list_all):
+                if data[WindowConnections.COLUMN_ALL_APPLICATION] == message[WindowConnections.COLUMN_NS_APPLICATION]:
+                    row_data_index = idx
+                    break
+
+            self.update_all_exiting_row(row_data_index, message)
+            if row_data_index == -1:
+                data_list_all = get_table_model_data_in_array(self.tableView_all_connections)
+
+            row_data_index = -1
+            for idx, data in enumerate(data_list_ns):
                 if data[WindowConnections.COLUMN_NS_PROTO] == message[WindowConnections.COLUMN_NS_PROTO] \
                         and data[WindowConnections.COLUMN_NS_PROTO] == message[WindowConnections.COLUMN_NS_PROTO] \
                         and data[WindowConnections.COLUMN_NS_LOCAL_ADDR] == message[
@@ -161,13 +193,13 @@ class WindowConnections(QMainWindow, Ui_MainWindow_connections, Abstr):
                         and data[WindowConnections.COLUMN_NS_PID] == message[WindowConnections.COLUMN_NS_PID]:
                     row_data_index = idx
                     break
-
             self.update_ns_exiting_row(row_data_index, message)
 
-        data_list = self.get_table_model_data_in_array(self.tableView_netstat)
-
-        for idx, data in enumerate(data_list):
-            if data[WindowConnections.COLUMN_NS_LAST] == '-1':
+        # update model with latest data
+        data_list_ns = get_table_model_data_in_array(self.tableView_netstat)
+        # if there are still rows with -1, remove them
+        for idx, data in enumerate(data_list_ns):
+            if data[WindowConnections.COLUMN_NS_LAST - 1] == '-1':
                 self.tableView_netstat.model().sourceModel().removeRow(idx)
 
         self.thread_call_ns.gather_data = True  # continue processing
@@ -175,14 +207,14 @@ class WindowConnections(QMainWindow, Ui_MainWindow_connections, Abstr):
     def update_ns_exiting_row(self, idx, message):
         if idx > -1:  # update
             model = self.tableView_netstat.model().sourceModel()
-            index = model.index(idx, WindowConnections.COLUMN_NS_LAST)
+            index = model.index(idx, WindowConnections.COLUMN_NS_LAST - 1)
             item = model.itemFromIndex(index)  # type: QStandardItem
             item.setText(message[WindowConnections.COLUMN_NS_LAST])
 
             index = model.index(idx, WindowConnections.COLUMN_NS_STATE)
             item = model.itemFromIndex(index)  # type: QStandardItem
             item.setText(message[WindowConnections.COLUMN_NS_STATE])
-            self.color_code(item, message)
+            self.color_code_ns(item, message)
         else:  # add new
             item1 = QStandardItem(message[WindowConnections.COLUMN_NS_LAST])  # last
             item1.setTextAlignment(QtCore.Qt.AlignCenter)
@@ -211,11 +243,8 @@ class WindowConnections(QMainWindow, Ui_MainWindow_connections, Abstr):
             item9 = QStandardItem(message[WindowConnections.COLUMN_NS_APPLICATION])
             item9.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
 
-            item10 = QStandardItem(message[WindowConnections.COLUMN_NS_SHA1])
-            item10.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-
-            row = 10 * [None]
-            row[WindowConnections.COLUMN_NS_LAST] = item1
+            row = 9 * [None]
+            row[WindowConnections.COLUMN_NS_LAST - 1] = item1
             row[WindowConnections.COLUMN_NS_PROTO] = item2
             row[WindowConnections.COLUMN_NS_LOCAL_ADDR] = item3
             row[WindowConnections.COLUMN_NS_LOCAL_PORT] = item4
@@ -224,13 +253,30 @@ class WindowConnections(QMainWindow, Ui_MainWindow_connections, Abstr):
             row[WindowConnections.COLUMN_NS_STATE] = item7
             row[WindowConnections.COLUMN_NS_PID] = item8
             row[WindowConnections.COLUMN_NS_APPLICATION] = item9
-            row[WindowConnections.COLUMN_NS_SHA1] = item10
 
-            self.color_code(item7, message)
+            self.color_code_ns(item7, message)
 
             self.tableView_netstat.model().sourceModel().appendRow(row)
 
-    def color_code(self, item, message):
+    def update_all_exiting_row(self, idx, message):
+        if idx == -1 and message[WindowConnections.COLUMN_NS_APPLICATION]:
+            item1 = QStandardItem(message[WindowConnections.COLUMN_NS_APPLICATION])
+            item1.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+
+            item2 = QStandardItem(message[WindowConnections.COLUMN_NS_SHA1])
+            item2.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+
+            item3 = QStandardItem('n/a')
+            item3.setTextAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
+
+            row = 3 * [None]
+            row[WindowConnections.COLUMN_ALL_APPLICATION] = item1
+            row[WindowConnections.COLUMN_ALL_SHA1] = item2
+            row[WindowConnections.COLUMN_ALL_STATUS] = item3
+
+            self.tableView_all_connections.model().sourceModel().appendRow(row)
+
+    def color_code_ns(self, item, message):
         if message[WindowConnections.COLUMN_NS_STATE] == 'ESTABLISHED':
             item.setBackground(QtGui.QColor('green'))
             item.setForeground(QtGui.QColor('white'))
@@ -355,7 +401,7 @@ class DialogConnectionsThread(QThread):
             if self.is_hide_empty_checked and not state:
                 return []
             elif self.is_hide_local_checked and ('127.0.0.1' == ip_from or '::' == ip_from or '::1' == ip_from) and (
-                        '127.0.0.1' == ip_to or '::' == ip_to or '::1' == ip_to):
+                                '127.0.0.1' == ip_to or '::' == ip_to or '::1' == ip_to):
                 return []
             else:
                 # protocol, local addr, local port, remote addr, remote port, state, pid, appl, sha1, last
@@ -375,7 +421,7 @@ class DialogConnectionsThread(QThread):
                 if '-' != pid_ and not self.proc_exe.get(pid_) and pid_:
                     logging.debug('Adding PID to the list: ' + pid_)
                     self.proc_exe[pid_], self.proc_user[pid_] = self.get_application(pid_, process_shell)  # add item
-                    if self.proc_exe[pid_]:
+                    if self.proc_exe[pid_] and not self.proc_sha1.get(pid_):
                         self.proc_sha1[pid_] = self.get_sha1(self.proc_exe[pid_], process_shell)  # add item
 
                 parsed.append(self.proc_exe.get(pid_))  # appl

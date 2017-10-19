@@ -126,6 +126,20 @@ def get_full_command(command, sudo_password, use_sudo_=True):
 
     return [base_command]
 
+def get_table_model_data_in_array(table):
+    """
+    :param QtGui.QTableView table:
+    :return:
+    """
+    model = table.model().sourceModel()
+    data = []
+    for row in range(model.rowCount()):
+        data.append([])
+        for column in range(model.columnCount()):
+            index = model.index(row, column)
+            data[row].append(str(model.data(index)))
+
+    return data
 
 def run_remote_command(command, ip, username, password, use_key_file, process_=None,
                        blocking_=False, expect_results_=1):
