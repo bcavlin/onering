@@ -324,7 +324,7 @@ class DialogConnectionsThread(QThread):
             result = process.stdout.read().decode('utf-8').strip()
             process.kill()
         else:
-            stdin, stdout, stderr = process.exec_command(command)
+            stdin, stdout, stderr = process.exec_command(" ".join(command).encode())
             result = stdout.read().decode('utf-8').strip()
             process.close()
 

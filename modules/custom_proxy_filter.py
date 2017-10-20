@@ -1,4 +1,4 @@
-from PyQt4 import QtGui
+from PyQt4 import QtGui, QtCore
 
 
 class CustomSortFilterProxyModel(QtGui.QSortFilterProxyModel):
@@ -38,3 +38,14 @@ class CustomSortFilterProxyModel(QtGui.QSortFilterProxyModel):
             return all(found)
         else:
             return True
+
+    def data(self, QModelIndex, role=None):
+        if role == QtCore.Qt.ToolTipRole:
+            model = self.sourceModel()
+            data = []
+            for column in range(model.columnCount()):
+                index = model.index(QModelIndex.row(), column)
+                data.append(str(model.data(index)))
+            return 'Tooltip: ' + str(data)
+        else:
+            return super().data(QModelIndex, role)
